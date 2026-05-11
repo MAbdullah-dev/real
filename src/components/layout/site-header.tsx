@@ -24,7 +24,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useWishlistStore } from "@/store/wishlist-store";
 
@@ -55,6 +61,10 @@ function MobileNav({ isHome }: { isHome: boolean }) {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-[min(100vw-2rem,380px)]">
+        <SheetTitle className="sr-only">Main menu</SheetTitle>
+        <SheetDescription className="sr-only">
+          Browse the site, open search, and sign in or create an account.
+        </SheetDescription>
         <div className="flex flex-col gap-6 pt-8">
           <Link href="/" className="flex items-center gap-2 text-lg font-semibold">
             <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10 text-primary">

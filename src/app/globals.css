@@ -30,9 +30,13 @@
   );
   --shadow-soft: 0 18px 50px -24px rgb(15 23 42 / 0.35);
   --shadow-card: 0 12px 40px -18px rgb(15 23 42 / 0.22);
+  --shadow-card-hover: 0 22px 60px -26px rgb(15 23 42 / 0.32);
+  --shadow-ring: 0 0 0 1px rgb(15 23 42 / 0.04);
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
+  --motion-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-soft: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Fluid layout system — wider than classic “Bootstrap” 1280px rails */
   --section-x: clamp(1rem, 3.5vw, 3.75rem);
@@ -72,6 +76,8 @@
   );
   --shadow-soft: 0 24px 60px -20px rgb(0 0 0 / 0.65);
   --shadow-card: 0 16px 48px -24px rgb(0 0 0 / 0.55);
+  --shadow-card-hover: 0 26px 62px -26px rgb(0 0 0 / 0.7);
+  --shadow-ring: 0 0 0 1px rgb(255 255 255 / 0.04);
 }
 
 @theme inline {
@@ -100,6 +106,7 @@
   --radius-2xl: var(--radius-2xl);
   --shadow-soft: var(--shadow-soft);
   --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
 }
 
 @layer base {
@@ -107,17 +114,50 @@
     @apply border-border;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Quieter native focus — components define their own focus-visible ring */
+  :where(button, a, [role="button"], input, textarea, select, summary):focus {
+    outline: none;
+  }
+
+  /* Better selection contrast */
+  ::selection {
+    background-color: color-mix(in oklab, var(--primary) 22%, transparent);
+    color: var(--foreground);
   }
 }
 
-/* Premium scrollbar */
+/* Premium scrollbar (Firefox + WebKit) */
 * {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent)
     transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
 }
 
 .glass-panel {
@@ -129,6 +169,38 @@
 
 .text-balance {
   text-wrap: balance;
+}
+.text-pretty {
+  text-wrap: pretty;
+}
+
+/* Subtle elevate hover used by feature cards */
+.card-elevate {
+  transition: box-shadow 320ms var(--motion-soft), transform 320ms var(--motion-soft);
+}
+.card-elevate:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translate3d(0, -2px, 0);
+}
+
+/* Shimmer skeleton — replaces vanilla pulse for a more premium feel */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--muted) 70%, transparent) 0%,
+    color-mix(in oklab, var(--muted-foreground) 14%, transparent) 50%,
+    color-mix(in oklab, var(--muted) 70%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
 }
 
 @keyframes hero-kenburns {
@@ -146,6 +218,24 @@
 
 .swiper-slide-active .hero-slide-media {
   animation: hero-kenburns 8.5s ease-out forwards;
+}
+
+/* Respect reduced motion: disable kenburns, easing-heavy transitions */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .swiper-slide-active .hero-slide-media {
+    animation: none !important;
+  }
+  .skeleton-shimmer {
+    animation: none !important;
+  }
 }
 
 .mesh-bg {

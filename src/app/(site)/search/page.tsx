@@ -1,11 +1,8 @@
 import { LayoutWide } from "@/components/layout/shell";
 import { PropertyCard } from "@/components/property/property-card";
-import { PropertyFilters } from "@/components/search/property-filters";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchExplorePanel } from "@/components/search/property-filters";
 import { filterProperties } from "@/data/properties";
 import type { PropertyPurpose } from "@/types";
-import { Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -40,38 +37,34 @@ export default async function SearchPage({
       <div className="max-w-2xl">
         <h1 className="text-3xl font-semibold tracking-tight">Search properties</h1>
         <p className="mt-2 text-muted-foreground">
-          Refine by purpose, typology, and price — desktop filters stay pinned; mobile opens a bottom sheet.
+          Use the discovery panel below — keyword search and refinements live together for a quicker brief-to-results
+          loop.
         </p>
       </div>
 
-      <form className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center" action="/search" method="get">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input name="q" defaultValue={q} placeholder="Search city, address, or keyword" className="h-12 pl-11" />
-        </div>
-        <Button type="submit" className="h-12 rounded-full sm:min-w-[120px] gap-2">
-          <Search className="h-4 w-4" />
-          Search
-        </Button>
-      </form>
+      <div className="mt-8 lg:mt-10">
+        <SearchExplorePanel defaultQuery={q} />
+      </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start xl:gap-14">
-        <PropertyFilters />
-        <div>
+      <div className="mt-10 lg:mt-12">
+        <div className="flex items-end justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{results.length}</span> curated matches
+            <span className="font-semibold text-foreground tabular-nums">{results.length}</span> curated{" "}
+            {results.length === 1 ? "match" : "matches"}
           </p>
-          <div className="mt-6 grid gap-8 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
-            {results.map((p, i) => (
-              <PropertyCard key={p.id} property={p} index={i} layout="showcase" />
-            ))}
-          </div>
-          {results.length === 0 ? (
-            <p className="mt-10 text-sm text-muted-foreground">
-              No homes match yet — loosen price or switch purpose to see more inventory.
-            </p>
-          ) : null}
         </div>
+        <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {results.map((p, i) => (
+            <PropertyCard key={p.id} property={p} index={i} layout="showcase" />
+          ))}
+        </div>
+        {results.length === 0 ? (
+          <div className="mt-10 rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-12 text-center">
+            <p className="text-sm text-muted-foreground">
+              No homes match yet — loosen the price range or switch purpose to see more inventory.
+            </p>
+          </div>
+        ) : null}
       </div>
     </LayoutWide>
   );

@@ -24,7 +24,7 @@ const cities = [
   { name: "Dubai", image: "photo-1512453979798-5ea266f8880c", tag: "Marina & Downtown" },
   { name: "Lisbon", image: "photo-1585208798174-6cedd86e019a", tag: "Design-led living" },
   { name: "Miami", image: "photo-1506905925346-21bda4d32df4", tag: "Waterfront energy" },
-  { name: "London", image: "photo-1513635269976-596ae1448a49", tag: "Heritage meets modern" },
+  { name: "London", image: "photo-1529655683826-aba9b3e77383", tag: "Heritage meets modern" },
 ];
 
 const testimonials = [
@@ -112,6 +112,7 @@ export function FeaturedCities() {
                     src={`https://images.unsplash.com/${c.image}?auto=format&fit=crop&w=900&q=80`}
                     alt={c.name}
                     fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                     className="object-cover transition duration-700 group-hover:scale-[1.04]"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
@@ -185,6 +186,7 @@ export function AgentHighlights() {
                   src={`https://images.unsplash.com/${a.image}?auto=format&fit=crop&w=800&q=80`}
                   alt={a.name}
                   fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
                   className="object-cover"
                 />
               </div>

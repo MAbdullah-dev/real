@@ -38,11 +38,14 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
     >
       <div
         className={cn(
-          "relative flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-border/60 bg-card shadow-[var(--shadow-card)] transition-[box-shadow,transform] duration-500 hover:-translate-y-0.5 hover:shadow-[var(--shadow-soft)] sm:rounded-3xl",
-          isShowcase && "rounded-[1.5rem] border-white/10 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.45)] dark:border-white/10"
+          "relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[var(--shadow-card)] transition-[box-shadow,transform,border-color] duration-300 ease-[var(--motion-soft)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)] hover:border-border focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background motion-reduce:hover:translate-y-0 sm:rounded-3xl"
         )}
       >
-        <Link href={`/properties/${property.slug}`} className="block">
+        <Link
+          href={`/properties/${property.slug}`}
+          className="block focus-visible:outline-none"
+          aria-label={`Open ${property.title}`}
+        >
           <div
             className={cn(
               "relative overflow-hidden",
@@ -53,22 +56,32 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
               src={property.image}
               alt={property.title}
               fill
-              className="object-cover transition duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.045]"
+              className="object-cover transition-transform duration-700 ease-[var(--motion-spring)] group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
               sizes={
                 isShowcase
                   ? "(max-width:640px) 88vw, (max-width:1100px) 32vw, (max-width:1536px) 24vw, 20vw"
                   : "(max-width:768px) 100vw, (max-width:1400px) 33vw, 28vw"
               }
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/10 to-transparent opacity-80 sm:opacity-90" />
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent mix-blend-overlay" />
-            <div className="absolute left-3 top-3 flex flex-wrap gap-2 sm:left-4 sm:top-4">
+            {/* Bottom-only gradient — keeps top of imagery crisp; only darkens enough to seat badges/heart */}
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent"
+              aria-hidden
+            />
+            <div className="absolute left-3 top-3 flex flex-wrap gap-1.5 sm:left-4 sm:top-4">
               {property.badges?.slice(0, 2).map((b) => (
-                <Badge key={b} variant="accent" className="backdrop-blur-md">
+                <Badge
+                  key={b}
+                  variant="accent"
+                  className="border-white/20 bg-white/85 text-foreground shadow-sm backdrop-blur-md dark:bg-black/55 dark:text-white"
+                >
                   {b}
                 </Badge>
               ))}
-              <Badge variant="secondary" className="backdrop-blur-md capitalize">
+              <Badge
+                variant="secondary"
+                className="border-white/20 bg-white/85 capitalize shadow-sm backdrop-blur-md dark:bg-black/55 dark:text-white"
+              >
                 {property.purpose === "rent" ? "Lease" : "Sale"}
               </Badge>
             </div>
@@ -76,80 +89,81 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
               type="button"
               size="icon"
               variant="secondary"
-              className={cn(
-                "absolute right-3 top-3 rounded-full bg-background/85 shadow-md backdrop-blur-md sm:right-4 sm:top-4",
-                "h-10 w-10"
-              )}
+              className="absolute right-3 top-3 h-10 w-10 rounded-full border border-white/30 bg-white/90 text-foreground shadow-md backdrop-blur-md transition-colors hover:bg-white dark:border-white/15 dark:bg-black/55 dark:text-white sm:right-4 sm:top-4"
               onClick={(e) => {
                 e.preventDefault();
                 toggle(property.id);
               }}
+              aria-pressed={saved}
               aria-label={saved ? "Remove from wishlist" : "Save property"}
             >
               <Heart
-                className={cn("h-5 w-5", saved ? "fill-primary text-primary" : "text-foreground")}
+                className={cn(
+                  "h-[1.05rem] w-[1.05rem] transition-colors",
+                  saved ? "fill-primary text-primary" : "text-foreground dark:text-white"
+                )}
               />
             </Button>
           </div>
         </Link>
 
-        <div className={cn("flex flex-1 flex-col space-y-3", isShowcase ? "p-4 sm:p-5" : "p-4 sm:p-5")}>
+        <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <Link href={`/properties/${property.slug}`}>
+              <Link
+                href={`/properties/${property.slug}`}
+                className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
                 <h3
                   className={cn(
-                    "font-semibold leading-snug tracking-tight transition-colors group-hover:text-primary",
+                    "line-clamp-2 font-semibold leading-snug tracking-tight transition-colors group-hover:text-primary",
                     isShowcase ? "text-base sm:text-lg" : "text-base"
                   )}
                 >
                   {property.title}
                 </h3>
               </Link>
-              <p
-                className={cn(
-                  "mt-1 flex items-center gap-1 text-muted-foreground",
-                    isShowcase ? "text-sm" : "text-sm"
-                )}
-              >
-                <MapPin className="h-3.5 w-3.5 shrink-0" />
-                {property.city}, {property.country}
+              <p className="mt-1 flex items-center gap-1 truncate text-sm text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span className="truncate">
+                  {property.city}, {property.country}
+                </span>
               </p>
             </div>
             <div className="shrink-0 text-right">
-              <p className={cn("font-semibold tabular-nums", isShowcase ? "text-sm sm:text-base" : "text-sm")}>
-                {priceLabel}
-              </p>
               <p
                 className={cn(
-                  "mt-0.5 flex items-center justify-end gap-1 text-muted-foreground",
-                  isShowcase ? "text-xs" : "text-xs"
+                  "font-semibold tabular-nums tracking-tight",
+                  isShowcase ? "text-base sm:text-lg" : "text-sm"
                 )}
               >
-                <Star className="h-3.5 w-3.5 text-accent" />
+                {priceLabel}
+              </p>
+              <p className="mt-0.5 flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                <Star className="h-3.5 w-3.5 fill-accent text-accent" aria-hidden />
                 <span className="tabular-nums">{property.rating.toFixed(2)}</span>
-                <span>({property.reviewCount})</span>
+                <span className="text-muted-foreground/80">({property.reviewCount})</span>
               </p>
             </div>
           </div>
 
           <div
             className={cn(
-              "flex flex-wrap items-center gap-2 text-muted-foreground",
-              isShowcase ? "gap-2 text-xs sm:text-sm" : "gap-3 text-xs"
+              "flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground",
+              isShowcase ? "sm:text-sm" : ""
             )}
           >
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-2.5 py-1">
-              <Bed className="h-3.5 w-3.5" />
-              {property.bedrooms} beds
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2.5 py-1">
+              <Bed className="h-3.5 w-3.5" aria-hidden />
+              <span>{property.bedrooms} beds</span>
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-2.5 py-1">
-              <Bath className="h-3.5 w-3.5" />
-              {property.bathrooms} baths
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2.5 py-1">
+              <Bath className="h-3.5 w-3.5" aria-hidden />
+              <span>{property.bathrooms} baths</span>
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-2.5 py-1">
-              <Maximize2 className="h-3.5 w-3.5" />
-              {property.areaSqm} m²
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2.5 py-1">
+              <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+              <span>{property.areaSqm} m²</span>
             </span>
           </div>
 
@@ -157,7 +171,7 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
             <Button
               asChild
               size={isShowcase ? "default" : "sm"}
-              className={cn("flex-1 rounded-full", isShowcase && "h-10 sm:h-11")}
+              className={cn("flex-1", isShowcase ? "h-10 sm:h-11" : "")}
             >
               <Link href={`/booking/${property.id}`}>Reserve visit</Link>
             </Button>
@@ -165,11 +179,12 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
               asChild
               size={isShowcase ? "default" : "sm"}
               variant="outline"
-              className={cn("rounded-full", isShowcase && "h-10 sm:h-11 px-4 sm:px-5")}
+              className={cn(isShowcase ? "h-10 sm:h-11 px-4 sm:px-5" : "")}
+              aria-label="Preview listing details"
             >
               <Link href={`/properties/${property.slug}`}>
-                <Maximize2 className="h-4 w-4" />
-                Preview
+                <Maximize2 className="h-4 w-4" aria-hidden />
+                <span>Preview</span>
               </Link>
             </Button>
           </div>

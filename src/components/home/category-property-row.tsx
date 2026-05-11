@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRef } from "react";
 import type { Swiper as SwiperType } from "swiper";
@@ -33,44 +33,48 @@ export function CategoryPropertyRow({
   if (properties.length === 0) return null;
 
   return (
-    <section className="py-14 sm:py-20 lg:py-24">
-      <LayoutWide className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-3xl">
-          <h2 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl lg:text-[2rem] lg:leading-tight">
+    <section className="overflow-x-clip py-12 sm:py-20 lg:py-24">
+      <LayoutWide className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+        <div className="max-w-3xl shrink-0">
+          <h2 className="text-xl font-semibold tracking-tight text-balance sm:text-3xl lg:text-[2rem] lg:leading-tight">
             {title}
           </h2>
-          <p className="mt-3 text-base leading-relaxed text-muted-foreground sm:text-lg">{subtitle}</p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-base lg:text-lg">
+            {subtitle}
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
+        <div className="flex items-center gap-2 sm:shrink-0 sm:justify-end">
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="rounded-full"
+            size="icon"
+            className="h-10 w-10"
             onClick={() => swiperRef.current?.slidePrev()}
+            aria-label={`Previous ${title} listings`}
           >
-            Prev
+            <ChevronLeft className="h-4 w-4" aria-hidden />
           </Button>
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="rounded-full"
+            size="icon"
+            className="h-10 w-10"
             onClick={() => swiperRef.current?.slideNext()}
+            aria-label={`Next ${title} listings`}
           >
-            Next
+            <ChevronRight className="h-4 w-4" aria-hidden />
           </Button>
-          <Button asChild variant="ghost" className="rounded-full gap-1">
+          <Button asChild variant="ghost" size="sm" className="ml-1 gap-1.5 px-3">
             <Link href={viewAllHref}>
               View all
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
           </Button>
         </div>
       </LayoutWide>
 
-      {/* Full-bleed slider: only horizontal padding aligns to section rhythm */}
-      <div className="mt-10 w-full pl-[var(--section-x)]">
+      {/* Full-bleed slider: horizontal padding matches section rhythm on both sides (mobile-friendly) */}
+      <div className="mt-6 w-full px-[var(--section-x)] sm:mt-9 sm:pl-[var(--section-x)] sm:pr-0">
         <Swiper
           modules={[Navigation]}
           spaceBetween={20}
@@ -87,7 +91,7 @@ export function CategoryPropertyRow({
           onSwiper={(s) => {
             swiperRef.current = s;
           }}
-          className="property-row-swiper !overflow-visible"
+          className="property-row-swiper !overflow-visible !py-2"
         >
           {properties.map((p, i) => (
             <SwiperSlide key={p.id} className="!h-auto">
