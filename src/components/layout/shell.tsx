@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 
+const layoutInset = "mx-auto w-full px-[var(--section-x)]";
+
 /** Readable text column — use inside wide sections for copy balance */
 export function LayoutProse({ className, ...props }: React.ComponentProps<"div">) {
   return <div className={cn("max-w-2xl", className)} {...props} />;
@@ -9,7 +11,7 @@ export function LayoutProse({ className, ...props }: React.ComponentProps<"div">
 export function LayoutContainer({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("mx-auto w-full max-w-[var(--page-max)] px-[var(--section-x)]", className)}
+      className={cn(layoutInset, "max-w-[var(--page-max)]", className)}
       {...props}
     />
   );
@@ -19,7 +21,7 @@ export function LayoutContainer({ className, ...props }: React.ComponentProps<"d
 export function LayoutWide({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("mx-auto w-full max-w-[var(--page-wide)] px-[var(--section-x)]", className)}
+      className={cn(layoutInset, "max-w-[var(--page-wide)]", className)}
       {...props}
     />
   );

@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import {
   BadgeCheck,
   Box,
+  ChevronLeft,
+  ChevronRight,
   Cpu,
   Globe2,
   Headphones,
@@ -14,11 +16,24 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRef } from "react";
+import type { Swiper as SwiperType } from "swiper";
+import { Navigation } from "swiper/modules";
+import { Swiper, SwiperSlide } from "swiper/react";
 
-import { LayoutContainer, LayoutWide } from "@/components/layout/shell";
+import { LayoutContainer } from "@/components/layout/shell";
 import { SUBSCRIPTION_PLANS } from "@/data/plans";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+
+import "swiper/css";
+import "swiper/css/navigation";
 
 const cities = [
   { name: "Dubai", image: "photo-1512453979798-5ea266f8880c", tag: "Marina & Downtown" },
@@ -39,6 +54,18 @@ const testimonials = [
       "As an agent, the subscription tiers match how we actually scale listings. Approvals are fast and professional.",
     name: "Jordan Blake",
     role: "Founder, Blake Realty",
+  },
+  {
+    quote:
+      "We relocated three executives in six weeks. Every viewing was punctual, private, and backed by real availability data.",
+    name: "Priya Menon",
+    role: "Chief of staff, Northwind Capital",
+  },
+  {
+    quote:
+      "The media standards alone set us apart — buyers arrive already convinced, and closings move faster.",
+    name: "Thomas Reid",
+    role: "Managing director, Reid & Co.",
   },
 ];
 
@@ -87,7 +114,7 @@ const why = [
 export function FeaturedCities() {
   return (
     <section className="py-16 sm:py-20 lg:py-24">
-      <LayoutWide>
+      <LayoutContainer>
         <div className="max-w-2xl">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Featured cities</h2>
           <p className="mt-3 text-muted-foreground">
@@ -125,40 +152,81 @@ export function FeaturedCities() {
             </motion.div>
           ))}
         </div>
-      </LayoutWide>
+      </LayoutContainer>
     </section>
   );
 }
 
 export function Testimonials() {
+  const swiperRef = useRef<SwiperType | null>(null);
+
   return (
-    <section className="border-y border-border bg-muted/25 py-16 sm:py-20 lg:py-24">
-      <LayoutWide>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Trusted by discerning clients</h2>
-            <p className="mt-3 max-w-xl text-muted-foreground">
-              We optimize for clarity, speed, and discretion — the same pillars as leading luxury hospitality brands.
-            </p>
-          </div>
+    <section className="overflow-x-clip border-y border-border bg-muted/25 py-16 sm:py-20 lg:py-24">
+      <LayoutContainer className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+        <div className="max-w-xl">
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Trusted by discerning clients</h2>
+          <p className="mt-3 text-muted-foreground">
+            We optimize for clarity, speed, and discretion — the same pillars as leading luxury hospitality brands.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium">
             <ShieldCheck className="h-3.5 w-3.5 text-primary" />
             SOC2-ready operations posture
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-10 w-10"
+            onClick={() => swiperRef.current?.slidePrev()}
+            aria-label="Previous testimonial"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-10 w-10"
+            onClick={() => swiperRef.current?.slideNext()}
+            aria-label="Next testimonial"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </Button>
         </div>
-        <div className="mt-10 grid gap-6 lg:grid-cols-2">
+      </LayoutContainer>
+
+      <div className="mt-8 w-full px-[var(--section-x)] sm:mt-10 sm:pl-[var(--section-x)] sm:pr-0">
+        <Swiper
+          modules={[Navigation]}
+          spaceBetween={24}
+          slidesPerView={1.08}
+          breakpoints={{
+            640: { slidesPerView: 1.35, spaceBetween: 24 },
+            900: { slidesPerView: 1.85, spaceBetween: 24 },
+            1024: { slidesPerView: 2.05, spaceBetween: 24 },
+            1280: { slidesPerView: 2.35, spaceBetween: 24 },
+          }}
+          onSwiper={(s) => {
+            swiperRef.current = s;
+          }}
+          className="!overflow-visible !py-2"
+        >
           {testimonials.map((t) => (
-            <Card key={t.name} className="rounded-3xl border-border/80">
-              <CardContent className="p-8">
-                <Quote className="h-8 w-8 text-primary/30" />
-                <p className="mt-4 text-lg leading-relaxed">{t.quote}</p>
-                <p className="mt-6 text-sm font-semibold">{t.name}</p>
-                <p className="text-xs text-muted-foreground">{t.role}</p>
-              </CardContent>
-            </Card>
+            <SwiperSlide key={t.name} className="!h-auto">
+              <Card className="h-full rounded-3xl border-border/80">
+                <CardContent className="p-8">
+                  <Quote className="h-8 w-8 text-primary/30" />
+                  <p className="mt-4 text-lg leading-relaxed">{t.quote}</p>
+                  <p className="mt-6 text-sm font-semibold">{t.name}</p>
+                  <p className="text-xs text-muted-foreground">{t.role}</p>
+                </CardContent>
+              </Card>
+            </SwiperSlide>
           ))}
-        </div>
-      </LayoutWide>
+        </Swiper>
+      </div>
     </section>
   );
 }
@@ -166,7 +234,7 @@ export function Testimonials() {
 export function AgentHighlights() {
   return (
     <section className="py-16 sm:py-20 lg:py-24">
-      <LayoutWide>
+      <LayoutContainer>
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Agent highlights</h2>
@@ -201,7 +269,7 @@ export function AgentHighlights() {
             </Card>
           ))}
         </div>
-      </LayoutWide>
+      </LayoutContainer>
     </section>
   );
 }
@@ -209,7 +277,7 @@ export function AgentHighlights() {
 export function PlansPreview() {
   return (
     <section className="py-16 sm:py-20 lg:py-24">
-      <LayoutWide>
+      <LayoutContainer>
         <div className="max-w-2xl">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Subscription plans</h2>
           <p className="mt-3 text-muted-foreground">
@@ -244,7 +312,7 @@ export function PlansPreview() {
             </Card>
           ))}
         </div>
-      </LayoutWide>
+      </LayoutContainer>
     </section>
   );
 }
@@ -252,7 +320,7 @@ export function PlansPreview() {
 export function WhyChooseUs() {
   return (
     <section className="border-t border-border py-16 sm:py-20 lg:py-24">
-      <LayoutWide>
+      <LayoutContainer>
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Why Estate Elite</h2>
         <div className="mt-10 grid gap-6 md:grid-cols-3">
           {why.map((item) => (
@@ -265,7 +333,7 @@ export function WhyChooseUs() {
             </Card>
           ))}
         </div>
-      </LayoutWide>
+      </LayoutContainer>
     </section>
   );
 }
@@ -274,7 +342,7 @@ export function ImmersivePreview() {
   return (
     <section className="relative overflow-hidden py-20 sm:py-28 lg:py-32">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/25 via-background to-background" />
-      <LayoutWide className="relative">
+      <LayoutContainer className="relative">
         <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
@@ -320,7 +388,7 @@ export function ImmersivePreview() {
             </div>
           </div>
         </div>
-      </LayoutWide>
+      </LayoutContainer>
     </section>
   );
 }
@@ -343,18 +411,16 @@ const faqs = [
 export function FaqSection() {
   return (
     <section className="py-16 sm:py-20 lg:py-24">
-      <LayoutContainer className="max-w-3xl">
+      <LayoutContainer className="mx-auto w-full">
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">FAQ</h2>
-        <div className="mt-8 space-y-4">
+        <Accordion type="single" collapsible className="mt-8 space-y-4">
           {faqs.map((f) => (
-            <Card key={f.q} className="rounded-2xl">
-              <CardContent className="p-6">
-                <p className="font-medium">{f.q}</p>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{f.a}</p>
-              </CardContent>
-            </Card>
+            <AccordionItem key={f.q} value={f.q}>
+              <AccordionTrigger>{f.q}</AccordionTrigger>
+              <AccordionContent>{f.a}</AccordionContent>
+            </AccordionItem>
           ))}
-        </div>
+        </Accordion>
         <div className="mt-8 text-center">
           <Button asChild variant="outline" className="rounded-full">
             <Link href="/faq">View all answers</Link>

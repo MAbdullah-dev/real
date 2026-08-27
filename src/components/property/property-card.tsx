@@ -99,8 +99,8 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
             >
               <Heart
                 className={cn(
-                  "h-[1.05rem] w-[1.05rem] transition-colors",
-                  saved ? "fill-primary text-primary" : "text-foreground dark:text-white"
+                  "h-[1.05rem] w-[1.05rem] text-primary transition-colors",
+                  saved && "fill-primary"
                 )}
               />
             </Button>
@@ -167,11 +167,11 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
             </span>
           </div>
 
-          <div className="mt-auto flex gap-2 pt-1">
+          <div className="mt-auto flex gap-2 pt-1 sm:flex-col">
             <Button
               asChild
               size={isShowcase ? "default" : "sm"}
-              className={cn("flex-1", isShowcase ? "h-10 sm:h-11" : "")}
+              className={cn("flex-1", isShowcase ? "h-10 sm:h-11 px-4 sm:px-5 sm:py-3" : "")}
             >
               <Link href={`/booking/${property.id}`}>Reserve visit</Link>
             </Button>

@@ -7,7 +7,7 @@ import type { Swiper as SwiperType } from "swiper";
 import { Navigation } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
 
-import { LayoutWide } from "@/components/layout/shell";
+import { LayoutContainer } from "@/components/layout/shell";
 import { PropertyCard } from "@/components/property/property-card";
 import { Button } from "@/components/ui/button";
 import type { Property } from "@/types";
@@ -34,7 +34,7 @@ export function CategoryPropertyRow({
 
   return (
     <section className="overflow-x-clip py-12 sm:py-20 lg:py-24">
-      <LayoutWide className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+      <LayoutContainer className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
         <div className="max-w-3xl shrink-0">
           <h2 className="text-xl font-semibold tracking-tight text-balance sm:text-3xl lg:text-[2rem] lg:leading-tight">
             {title}
@@ -71,7 +71,7 @@ export function CategoryPropertyRow({
             </Link>
           </Button>
         </div>
-      </LayoutWide>
+      </LayoutContainer>
 
       {/* Full-bleed slider: horizontal padding matches section rhythm on both sides (mobile-friendly) */}
       <div className="mt-6 w-full px-[var(--section-x)] sm:mt-9 sm:pl-[var(--section-x)] sm:pr-0">

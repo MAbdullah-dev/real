@@ -1,4 +1,10 @@
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { LayoutContainer } from "@/components/layout/shell";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -26,19 +32,17 @@ const items = [
 
 export default function FaqPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+    <LayoutContainer className="mx-auto max-w-3xl py-16 sm:py-20 lg:py-24">
       <h1 className="text-4xl font-semibold tracking-tight">Frequently asked</h1>
       <p className="mt-4 text-muted-foreground">Straight answers about booking, agents, and enterprise rollout.</p>
-      <div className="mt-10 space-y-4">
+      <Accordion type="single" collapsible className="mt-10 space-y-4">
         {items.map((item) => (
-          <Card key={item.q} className="rounded-2xl">
-            <CardContent className="p-6">
-              <p className="font-medium">{item.q}</p>
-              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{item.a}</p>
-            </CardContent>
-          </Card>
+          <AccordionItem key={item.q} value={item.q}>
+            <AccordionTrigger>{item.q}</AccordionTrigger>
+            <AccordionContent>{item.a}</AccordionContent>
+          </AccordionItem>
         ))}
-      </div>
-    </div>
+      </Accordion>
+    </LayoutContainer>
   );
 }

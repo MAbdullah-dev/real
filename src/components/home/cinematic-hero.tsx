@@ -128,7 +128,7 @@ export function CinematicHero() {
 
       {/* Layer 2: all copy + controls + search — always above slides */}
       <div
-        className="pointer-events-none absolute inset-0 z-20 flex min-h-dvh flex-col justify-between pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-[max(5.5rem,calc(env(safe-area-inset-top,0px)+4.25rem))] sm:pb-10 sm:pt-28 md:pt-32"
+        className="pointer-events-none absolute inset-0 z-20 flex min-h-dvh flex-col justify-between gap-6 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-[max(5.5rem,calc(env(safe-area-inset-top,0px)+4.25rem))] sm:pb-10 sm:pt-28 md:pt-32"
       >
         <div className="pointer-events-auto flex min-h-0 flex-1 flex-col justify-start pt-1 sm:justify-center sm:pt-0 px-[var(--section-x)]">
           <div className="mx-auto w-full max-w-[var(--page-wide)]">
