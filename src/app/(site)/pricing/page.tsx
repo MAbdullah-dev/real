@@ -1,5 +1,5 @@
 import { LayoutWide } from "@/components/layout/shell";
-import { SUBSCRIPTION_PLANS } from "@/data/plans";
+import { listPlans } from "@/server/plans";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,8 @@ export const metadata: Metadata = {
   description: "Agent subscription plans with listing caps and premium tooling.",
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const plans = await listPlans();
   return (
     <LayoutWide className="py-16 sm:py-20 lg:py-24">
       <div className="max-w-2xl">
@@ -22,7 +23,7 @@ export default function PricingPage() {
         </p>
       </div>
       <div className="mt-12 grid gap-6 lg:grid-cols-3">
-        {SUBSCRIPTION_PLANS.map((plan) => (
+        {plans.map((plan) => (
           <Card
             key={plan.id}
             className={`rounded-3xl ${plan.highlighted ? "border-primary shadow-[var(--shadow-soft)] ring-1 ring-primary/20" : ""}`}

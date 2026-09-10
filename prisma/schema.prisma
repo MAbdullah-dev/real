@@ -1,0 +1,296 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  AGENT
+  ADMIN
+}
+
+enum PropertyPurpose {
+  sale
+  rent
+}
+
+enum PropertyStatus {
+  draft
+  pending_review
+  published
+  rejected
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  declined
+  completed
+}
+
+enum SubscriptionStatus {
+  incomplete
+  trialing
+  active
+  past_due
+  canceled
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          Role      @default(USER)
+
+  accounts      Account[]
+  sessions      Session[]
+  agentProfile  AgentProfile?
+  properties    Property[]      @relation("AgentProperties")
+  bookings      Booking[]
+  leads         Lead[]
+  wishlist      WishlistItem[]
+  notifications Notification[]
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model AgentProfile {
+  id       String  @id @default(cuid())
+  userId   String  @unique
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency   String?
+  phone    String?
+  bio      String? @db.Text
+  verified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Property {
+  id          String          @id @default(cuid())
+  slug        String          @unique
+  title       String
+  description String          @db.Text
+  address     String
+  city        String
+  country     String
+  price       Int
+  purpose     PropertyPurpose
+  bedrooms    Int
+  bathrooms   Int
+  areaSqm     Int
+  rating      Float           @default(0)
+  reviewCount Int             @default(0)
+  categories  String[]
+  amenities   String[]
+  badges      String[]
+  furnished   Boolean         @default(false)
+  videoUrl    String?
+  lat         Float?
+  lng         Float?
+  status      PropertyStatus  @default(draft)
+
+  agentId String
+  agent   User   @relation("AgentProperties", fields: [agentId], references: [id])
+
+  images            PropertyImage[]
+  bookings          Booking[]
+  leads             Lead[]
+  wishlist          WishlistItem[]
+  dailyStats        PropertyViewDaily[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([city])
+  @@index([agentId])
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  url        String
+  sortOrder  Int      @default(0)
+  isCover    Boolean  @default(false)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  propertyId      String
+  property        Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name            String
+  email           String
+  phone           String
+  requestedDates  String
+  notes           String        @db.Text
+  visitDate       DateTime?
+  status          BookingStatus @default(pending)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([userId])
+  @@index([status])
+}
+
+model Lead {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name       String
+  email      String
+  phone      String?
+  message    String   @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([propertyId])
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  company   String?
+  message   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Plan {
+  id            String         @id
+  name          String
+  description   String
+  priceMonthly  Int
+  listingLimit  Int?
+  features      String[]
+  highlighted   Boolean        @default(false)
+  stripePriceId String?
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 Plan               @relation(fields: [planId], references: [id])
+  status               SubscriptionStatus @default(incomplete)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?            @unique
+  currentPeriodEnd     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  excerpt     String
+  body        String    @db.Text
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model FaqItem {
+  id        String  @id @default(cuid())
+  question  String
+  answer    String  @db.Text
+  sortOrder Int     @default(0)
+  published Boolean @default(true)
+}
+
+model AdminSetting {
+  key   String  @id
+  value Boolean
+}
+
+model PropertyViewDaily {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  views      Int      @default(0)
+  leads      Int      @default(0)
+
+  @@unique([propertyId, date])
+}

@@ -9,7 +9,9 @@ import {
   Testimonials,
   WhyChooseUs,
 } from "@/components/home/marketing-sections";
-import { getPropertiesByCategory } from "@/data/properties";
+import { pickHeroProperties, propertiesByCategory } from "@/server/mappers";
+import { listPlans } from "@/server/plans";
+import { listPublishedProperties } from "@/server/properties";
 
 const categoryRows = [
   {
@@ -104,23 +106,26 @@ const categoryRows = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [properties, plans] = await Promise.all([listPublishedProperties(), listPlans()]);
+  const hero = pickHeroProperties(properties);
+
   return (
     <>
-      <CinematicHero />
+      <CinematicHero properties={hero} />
       {categoryRows.map((row) => (
         <CategoryPropertyRow
           key={row.key}
           title={row.title}
           subtitle={row.subtitle}
-          properties={getPropertiesByCategory(row.key)}
+          properties={propertiesByCategory(properties, row.key)}
           viewAllHref={row.href}
         />
       ))}
       <FeaturedCities />
       <Testimonials />
       <AgentHighlights />
-      <PlansPreview />
+      <PlansPreview plans={plans} />
       <WhyChooseUs />
       <ImmersivePreview />
       <FaqSection />

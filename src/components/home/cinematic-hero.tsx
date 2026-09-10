@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, MapPin, Search, SlidersHorizontal, Sparkles 
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Swiper as SwiperType } from "swiper";
 import { Autoplay, EffectFade } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -19,35 +19,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MOCK_PROPERTIES } from "@/data/properties";
 import { formatPrice } from "@/lib/utils";
 import type { Property } from "@/types";
 
 import "swiper/css";
 import "swiper/css/effect-fade";
 
-function pickHeroProperties(): Property[] {
-  const scored = [...MOCK_PROPERTIES].sort((a, b) => {
-    const score = (p: Property) =>
-      (p.categories.includes("luxury") ? 3 : 0) +
-      (p.categories.includes("penthouse") ? 2 : 0) +
-      (p.categories.includes("featured") ? 2 : 0) +
-      p.rating;
-    return score(b) - score(a);
-  });
-  const unique = scored.slice(0, 7);
-  return unique.length >= 4 ? unique : MOCK_PROPERTIES.slice(0, 6);
-}
+const subscribeNoop = () => () => {};
 
-export function CinematicHero() {
+export function CinematicHero({ properties }: { properties: Property[] }) {
   const router = useRouter();
-  const slides = useMemo(() => pickHeroProperties(), []);
+  const slides = useMemo(() => properties, [properties]);
   const swiperRef = useRef<SwiperType | null>(null);
   const [active, setActive] = useState(0);
   const [q, setQ] = useState("");
   const [purpose, setPurpose] = useState("all");
+  // Swiper only mounts after hydration; the server renders a static first slide.
+  const sliderReady = useSyncExternalStore(subscribeNoop, () => true, () => false);
 
   const current = slides[active] ?? slides[0];
+
+  if (!current) {
+    return (
+      <section className="relative isolate flex min-h-[50vh] items-center justify-center bg-black text-white">
+        <p className="text-sm text-white/70">Listings will appear here once inventory is published.</p>
+      </section>
+    );
+  }
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -69,39 +67,53 @@ export function CinematicHero() {
     >
       {/* Layer 0: imagery only — must stay below all UI */}
       <div className="absolute inset-0 z-0">
-        <Swiper
-          modules={[Autoplay, EffectFade]}
-          effect="fade"
-          fadeEffect={{ crossFade: true }}
-          speed={1400}
-          loop
-          autoplay={{
-            delay: 6500,
-            disableOnInteraction: false,
-            pauseOnMouseEnter: true,
-          }}
-          onSwiper={(s) => {
-            swiperRef.current = s;
-          }}
-          onSlideChange={(s) => setActive(s.realIndex)}
-          className="h-full w-full [&_.swiper-wrapper]:h-full [&_.swiper-slide]:h-full"
-        >
-          {slides.map((p) => (
-            <SwiperSlide key={p.id} className="!h-full">
-              <div className="relative h-full min-h-dvh w-full">
-                <Image
-                  src={p.image}
-                  alt=""
-                  fill
-                  priority={p.id === slides[0]?.id}
-                  className="hero-slide-media object-cover"
-                  sizes="100vw"
-                  quality={92}
-                />
-              </div>
-            </SwiperSlide>
-          ))}
-        </Swiper>
+        {sliderReady ? (
+          <Swiper
+            modules={[Autoplay, EffectFade]}
+            effect="fade"
+            fadeEffect={{ crossFade: true }}
+            speed={1400}
+            loop
+            autoplay={{
+              delay: 6500,
+              disableOnInteraction: false,
+              pauseOnMouseEnter: true,
+            }}
+            onSwiper={(s) => {
+              swiperRef.current = s;
+            }}
+            onSlideChange={(s) => setActive(s.realIndex)}
+            className="h-full w-full [&_.swiper-wrapper]:h-full [&_.swiper-slide]:h-full"
+          >
+            {slides.map((p) => (
+              <SwiperSlide key={p.id} className="!h-full">
+                <div className="relative h-full min-h-dvh w-full">
+                  <Image
+                    src={p.image}
+                    alt=""
+                    fill
+                    priority={p.id === slides[0]?.id}
+                    className="hero-slide-media object-cover"
+                    sizes="100vw"
+                    quality={92}
+                  />
+                </div>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        ) : (
+          <div className="relative h-full min-h-dvh w-full">
+            <Image
+              src={current.image}
+              alt=""
+              fill
+              priority
+              className="hero-slide-media object-cover"
+              sizes="100vw"
+              quality={92}
+            />
+          </div>
+        )}
       </div>
 
       {/* Layer 1: grades (non-interactive) */}

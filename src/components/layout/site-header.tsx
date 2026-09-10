@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
+import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useWishlistStore } from "@/store/wishlist-store";
+import { signOutAction } from "@/server/actions/auth";
 
 import { ThemeToggle } from "./theme-toggle";
 
@@ -45,6 +47,8 @@ const exploreLinks = [
 ];
 
 function MobileNav({ isHome }: { isHome: boolean }) {
+  const { data: session } = useSession();
+  const role = session?.user?.role;
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -84,12 +88,37 @@ function MobileNav({ isHome }: { isHome: boolean }) {
             ))}
           </nav>
           <div className="flex flex-col gap-2 border-t border-border pt-4">
-            <Button asChild className="w-full rounded-full">
-              <Link href="/auth/login">Sign in</Link>
-            </Button>
-            <Button asChild variant="outline" className="w-full rounded-full">
-              <Link href="/auth/register">Create account</Link>
-            </Button>
+            {session ? (
+              <>
+                {role === "ADMIN" ? (
+                  <Button asChild className="w-full rounded-full">
+                    <Link href="/admin">Admin console</Link>
+                  </Button>
+                ) : role === "AGENT" ? (
+                  <Button asChild className="w-full rounded-full">
+                    <Link href="/agent">Agent console</Link>
+                  </Button>
+                ) : (
+                  <Button asChild className="w-full rounded-full">
+                    <Link href="/dashboard">Dashboard</Link>
+                  </Button>
+                )}
+                <form action={signOutAction}>
+                  <Button type="submit" variant="outline" className="w-full rounded-full">
+                    Sign out
+                  </Button>
+                </form>
+              </>
+            ) : (
+              <>
+                <Button asChild className="w-full rounded-full">
+                  <Link href="/auth/login">Sign in</Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full rounded-full">
+                  <Link href="/auth/register">Create account</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </SheetContent>
@@ -101,6 +130,8 @@ export function SiteHeader() {
   const pathname = usePathname();
   const wishlistCount = useWishlistStore((s) => s.ids.length);
   const isHome = pathname === "/";
+  const { data: session } = useSession();
+  const role = session?.user?.role;
 
   return (
     <motion.header
@@ -214,47 +245,81 @@ export function SiteHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Workspace</DropdownMenuLabel>
+              <DropdownMenuLabel>{session?.user?.name ?? session?.user?.email ?? "Workspace"}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard" className="gap-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Guest dashboard
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/agent" className="gap-2">
-                  <Building2 className="h-4 w-4" />
-                  Agent console
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin" className="gap-2">
-                  <Shield className="h-4 w-4" />
-                  Admin
-                </Link>
-              </DropdownMenuItem>
+              {role === "ADMIN" ? (
+                <DropdownMenuItem asChild>
+                  <Link href="/admin" className="gap-2">
+                    <Shield className="h-4 w-4" />
+                    Admin
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
+              {role === "AGENT" || role === "ADMIN" ? (
+                <DropdownMenuItem asChild>
+                  <Link href="/agent" className="gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Agent console
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
+              {session ? (
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard" className="gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/auth/login">Sign in</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/auth/register">Register</Link>
-              </DropdownMenuItem>
+              {session ? (
+                <form action={signOutAction}>
+                  <DropdownMenuItem asChild>
+                    <button type="submit" className="w-full cursor-pointer text-left">
+                      Sign out
+                    </button>
+                  </DropdownMenuItem>
+                </form>
+              ) : (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/auth/login">Sign in</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/auth/register">Register</Link>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button
-            asChild
-            size="sm"
-            className={cn(
-              "inline-flex rounded-full sm:hidden",
-              isHome && "border-white/30 bg-white/10 text-white hover:bg-white/15"
-            )}
-            variant={isHome ? "outline" : "default"}
-          >
-            <Link href="/auth/login">Sign in</Link>
-          </Button>
+          {session ? (
+            <Button
+              asChild
+              size="sm"
+              className={cn(
+                "inline-flex rounded-full sm:hidden",
+                isHome && "border-white/30 bg-white/10 text-white hover:bg-white/15"
+              )}
+              variant={isHome ? "outline" : "default"}
+            >
+              <Link href={role === "ADMIN" ? "/admin" : role === "AGENT" ? "/agent" : "/dashboard"}>
+                Account
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              asChild
+              size="sm"
+              className={cn(
+                "inline-flex rounded-full sm:hidden",
+                isHome && "border-white/30 bg-white/10 text-white hover:bg-white/15"
+              )}
+              variant={isHome ? "outline" : "default"}
+            >
+              <Link href="/auth/login">Sign in</Link>
+            </Button>
+          )}
         </div>
       </div>
     </motion.header>

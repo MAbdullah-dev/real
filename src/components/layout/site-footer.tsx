@@ -81,7 +81,7 @@ export function SiteFooter() {
           </div>
         </div>
         <div className="mt-12 flex flex-col gap-4 border-t border-border pt-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} Estate Elite. All rights reserved.</p>
+          <p>© 2026 Estate Elite. All rights reserved.</p>
           <div className="flex flex-wrap gap-4">
             <Link href="#" className="hover:text-foreground">
               Privacy

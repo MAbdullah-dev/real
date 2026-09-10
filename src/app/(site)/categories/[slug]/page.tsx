@@ -1,6 +1,6 @@
 import { LayoutWide } from "@/components/layout/shell";
 import { PropertyCard } from "@/components/property/property-card";
-import { getPropertiesByCategory } from "@/data/properties";
+import { getPropertiesByCategory } from "@/server/properties";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -44,7 +44,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const title = LABELS[slug];
   if (!title) notFound();
 
-  const properties = getPropertiesByCategory(slug);
+  const properties = await getPropertiesByCategory(slug);
 
   return (
     <LayoutWide className="py-12 sm:py-14 lg:py-16">

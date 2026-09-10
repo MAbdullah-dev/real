@@ -1,27 +1,47 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { BellRing } from "lucide-react";
+import { Suspense } from "react";
 
-const items = [
-  { title: "Visit confirmed", body: "Coastal Villa — Apr 20 morning slot locked with agent.", time: "2h ago" },
-  { title: "Document request", body: "Upload proof of funds to accelerate offer review.", time: "Yesterday" },
-];
+import { NotificationList } from "@/components/dashboard/notification-list";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { requireAuth } from "@/server/auth";
+import { listNotifications } from "@/server/notifications";
+
+async function Notifications() {
+  const session = await requireAuth();
+  const notifications = await listNotifications(session.user.id);
+
+  if (notifications.length === 0) {
+    return (
+      <EmptyState
+        icon={BellRing}
+        title="Nothing to catch up on"
+        description="Booking updates and agent replies land here."
+        action={{ label: "Browse properties", href: "/search" }}
+      />
+    );
+  }
+
+  return (
+    <NotificationList
+      notifications={notifications.map((item) => ({
+        id: item.id,
+        title: item.title,
+        body: item.body,
+        read: item.readAt != null,
+        createdAt: item.createdAt.toISOString(),
+      }))}
+    />
+  );
+}
 
 export default function NotificationsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Notifications</h1>
-      <div className="space-y-3">
-        {items.map((n) => (
-          <Card key={n.title} className="rounded-2xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-4">
-                <p className="font-medium">{n.title}</p>
-                <span className="text-xs text-muted-foreground">{n.time}</span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">{n.body}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Suspense fallback={<Skeleton className="h-48 w-full rounded-3xl" />}>
+        <Notifications />
+      </Suspense>
     </div>
   );
 }

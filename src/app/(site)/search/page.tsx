@@ -1,12 +1,35 @@
+import { Suspense } from "react";
+
 import { LayoutWide } from "@/components/layout/shell";
 import { PropertyCard } from "@/components/property/property-card";
 import { SearchExplorePanel } from "@/components/search/property-filters";
-import { filterProperties } from "@/data/properties";
+import { Skeleton } from "@/components/ui/skeleton";
+import { filterProperties } from "@/server/properties";
 import type { PropertyPurpose } from "@/types";
 
-export const dynamic = "force-dynamic";
+export default function SearchPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return (
+    <LayoutWide className="py-10 sm:py-12 lg:py-14">
+      <div className="max-w-2xl">
+        <h1 className="text-3xl font-semibold tracking-tight">Search properties</h1>
+        <p className="mt-2 text-muted-foreground">
+          Use the discovery panel below — keyword search and refinements live together for a quicker brief-to-results
+          loop.
+        </p>
+      </div>
 
-export default async function SearchPage({
+      <Suspense fallback={<SearchResultsFallback />}>
+        <SearchResults searchParams={searchParams} />
+      </Suspense>
+    </LayoutWide>
+  );
+}
+
+async function SearchResults({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -21,7 +44,7 @@ export default async function SearchPage({
   const minPrice = typeof sp.minPrice === "string" ? Number(sp.minPrice) : undefined;
   const maxPrice = typeof sp.maxPrice === "string" ? Number(sp.maxPrice) : undefined;
 
-  const results = filterProperties({
+  const results = await filterProperties({
     q,
     purpose,
     type,
@@ -33,15 +56,7 @@ export default async function SearchPage({
   });
 
   return (
-    <LayoutWide className="py-10 sm:py-12 lg:py-14">
-      <div className="max-w-2xl">
-        <h1 className="text-3xl font-semibold tracking-tight">Search properties</h1>
-        <p className="mt-2 text-muted-foreground">
-          Use the discovery panel below — keyword search and refinements live together for a quicker brief-to-results
-          loop.
-        </p>
-      </div>
-
+    <>
       <div className="mt-8 lg:mt-10">
         <SearchExplorePanel defaultQuery={q} />
       </div>
@@ -66,6 +81,19 @@ export default async function SearchPage({
           </div>
         ) : null}
       </div>
-    </LayoutWide>
+    </>
+  );
+}
+
+function SearchResultsFallback() {
+  return (
+    <div className="mt-8 space-y-10">
+      <Skeleton className="h-24 w-full rounded-2xl" />
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="aspect-[4/5] w-full rounded-3xl" />
+        ))}
+      </div>
+    </div>
   );
 }

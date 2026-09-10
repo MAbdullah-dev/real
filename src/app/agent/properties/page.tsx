@@ -1,8 +1,93 @@
+import Link from "next/link";
+import { Suspense } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MOCK_PROPERTIES } from "@/data/properties";
-import Link from "next/link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { formatPrice } from "@/lib/utils";
+import { requireRole } from "@/server/auth";
+import { listAgentProperties } from "@/server/properties";
+import { getListingAllowance } from "@/server/subscriptions";
+import { Building2 } from "lucide-react";
+
+const statusLabel: Record<string, string> = {
+  draft: "Draft",
+  pending_review: "Pending review",
+  published: "Published",
+  rejected: "Rejected",
+};
+
+async function AgentPropertiesTable() {
+  const session = await requireRole(["AGENT", "ADMIN"]);
+  const [listings, allowance] = await Promise.all([
+    listAgentProperties(session.user.id),
+    getListingAllowance(session.user.id),
+  ]);
+
+  if (listings.length === 0) {
+    return (
+      <EmptyState
+        icon={Building2}
+        title="No listings yet"
+        description="Create your first listing to start collecting visit requests."
+        action={{ label: "Add property", href: "/agent/properties/new" }}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        {allowance.limit == null
+          ? `${allowance.planName} plan · unlimited listings`
+          : `${allowance.planName} plan · ${allowance.used} of ${allowance.limit} listings used`}
+      </p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Title</TableHead>
+            <TableHead>City</TableHead>
+            <TableHead className="text-right">Price</TableHead>
+            <TableHead className="text-right">Requests</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {listings.map(({ property, status, bookings, leads }) => (
+            <TableRow key={property.id}>
+              <TableCell className="font-medium">{property.title}</TableCell>
+              <TableCell>{property.city}</TableCell>
+              <TableCell className="text-right tabular-nums">
+                {formatPrice(property.price)}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{bookings + leads}</TableCell>
+              <TableCell>
+                <Badge variant={status === "published" ? "default" : "secondary"}>
+                  {statusLabel[status] ?? status}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-right">
+                <Button asChild variant="ghost" size="sm" className="rounded-full">
+                  <Link href={`/agent/properties/${property.id}/edit`}>Edit</Link>
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
 
 export default function AgentPropertiesPage() {
   return (
@@ -10,38 +95,17 @@ export default function AgentPropertiesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Properties</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Draft / published states with media completeness checks.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your portfolio with review status and inbound request volume.
+          </p>
         </div>
         <Button asChild className="rounded-full">
           <Link href="/agent/properties/new">Add property</Link>
         </Button>
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead>City</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {MOCK_PROPERTIES.slice(0, 8).map((p) => (
-            <TableRow key={p.id}>
-              <TableCell className="font-medium">{p.title}</TableCell>
-              <TableCell>{p.city}</TableCell>
-              <TableCell>
-                <Badge>Published</Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <Button asChild variant="ghost" size="sm" className="rounded-full">
-                  <Link href={`/agent/properties/${p.id}/edit`}>Edit</Link>
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl" />}>
+        <AgentPropertiesTable />
+      </Suspense>
     </div>
   );
 }

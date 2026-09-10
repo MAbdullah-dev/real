@@ -3,10 +3,15 @@ import { PropertyGallery } from "@/components/property/property-gallery";
 import { MortgageCalculator } from "@/components/property/mortgage-calculator";
 import { PropertyStickyPanel } from "@/components/property/property-sticky-panel";
 import { PropertyCard } from "@/components/property/property-card";
+import { PropertyViewTracker } from "@/components/property/property-view-tracker";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MOCK_PROPERTIES, getPropertyBySlug } from "@/data/properties";
+import {
+  getPropertyBySlug,
+  getSimilarProperties,
+  listPublishedPropertyParams,
+} from "@/server/properties";
 import { formatPrice } from "@/lib/utils";
 import {
   Bath,
@@ -22,14 +27,20 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
+export async function generateStaticParams() {
+  const properties = await listPublishedPropertyParams();
+  return properties.map(({ slug }) => ({ slug }));
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const p = getPropertyBySlug(slug);
+  const p = await getPropertyBySlug(slug);
   if (!p) return { title: "Property" };
   return {
     title: p.title,
@@ -39,13 +50,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PropertyDetailPage({ params }: Props) {
   const { slug } = await params;
-  const property = getPropertyBySlug(slug);
+  const property = await getPropertyBySlug(slug);
   if (!property) notFound();
 
   const gallery = [property.image, ...property.gallery];
-  const similar = MOCK_PROPERTIES.filter(
-    (p) => p.id !== property.id && p.categories.some((c) => property.categories.includes(c))
-  ).slice(0, 3);
+  const similar = await getSimilarProperties(property);
 
   const amenityIcons: Record<string, typeof Bed> = {
     default: Sofa,
@@ -53,6 +62,9 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   return (
     <>
+      <Suspense fallback={null}>
+        <PropertyViewTracker propertyId={property.id} />
+      </Suspense>
       <div className="w-full px-[var(--section-x)] pt-8 sm:pt-10 lg:pt-12">
         <div className="mx-auto max-w-[var(--page-cinematic)]">
           <PropertyGallery images={gallery} title={property.title} />

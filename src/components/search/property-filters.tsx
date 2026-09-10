@@ -2,7 +2,7 @@
 
 import { Search, SlidersHorizontal } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -289,10 +289,13 @@ export function SearchExplorePanel({ defaultQuery }: { defaultQuery: string }) {
   const params = useSearchParams();
   const isMobile = useIsMobile();
   const [qDraft, setQDraft] = useState(defaultQuery);
+  const [lastDefaultQuery, setLastDefaultQuery] = useState(defaultQuery);
 
-  useEffect(() => {
+  // Re-sync the draft when navigation changes the URL query.
+  if (lastDefaultQuery !== defaultQuery) {
+    setLastDefaultQuery(defaultQuery);
     setQDraft(defaultQuery);
-  }, [defaultQuery]);
+  }
 
   const initial = useMemo(() => {
     const o: Record<string, string> = {};

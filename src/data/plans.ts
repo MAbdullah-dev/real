@@ -1,5 +1,7 @@
 import type { SubscriptionPlan } from "@/types";
 
+/** Seed source only — pages read from Prisma via `@/server/plans`. */
+
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: "basic",

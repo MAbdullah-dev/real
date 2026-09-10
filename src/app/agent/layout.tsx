@@ -1,6 +1,10 @@
-import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { GuardedDashboardShell } from "@/components/dashboard/guarded-dashboard-shell";
 import { agentDashboardNav } from "@/config/dashboard-nav";
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardShell title="Agent console" nav={agentDashboardNav}>{children}</DashboardShell>;
+  return (
+    <GuardedDashboardShell title="Agent console" nav={agentDashboardNav} roles={["AGENT", "ADMIN"]}>
+      {children}
+    </GuardedDashboardShell>
+  );
 }

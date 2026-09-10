@@ -1,5 +1,7 @@
 import type { Property, PropertyPurpose } from "@/types";
 
+/** Seed source only — pages read from Prisma via `@/server/properties`. */
+
 const imgs = (seed: string) =>
   `https://images.unsplash.com/${seed}?auto=format&fit=crop&w=1600&q=80`;
 

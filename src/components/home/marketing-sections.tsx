@@ -22,7 +22,7 @@ import { Navigation } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
 
 import { LayoutContainer } from "@/components/layout/shell";
-import { SUBSCRIPTION_PLANS } from "@/data/plans";
+import type { SubscriptionPlan } from "@/types";
 import {
   Accordion,
   AccordionContent,
@@ -274,7 +274,7 @@ export function AgentHighlights() {
   );
 }
 
-export function PlansPreview() {
+export function PlansPreview({ plans }: { plans: SubscriptionPlan[] }) {
   return (
     <section className="py-16 sm:py-20 lg:py-24">
       <LayoutContainer>
@@ -285,7 +285,7 @@ export function PlansPreview() {
           </p>
         </div>
         <div className="mt-10 grid gap-6 lg:grid-cols-3">
-          {SUBSCRIPTION_PLANS.map((plan) => (
+          {plans.map((plan) => (
             <Card
               key={plan.id}
               className={`rounded-3xl ${plan.highlighted ? "border-primary shadow-[var(--shadow-soft)] ring-1 ring-primary/20" : ""}`}

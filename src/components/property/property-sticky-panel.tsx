@@ -1,10 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarClock, Share2, ShieldCheck } from "lucide-react";
+import { CalendarClock, Loader2, Phone, Share2, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+
+import { createLeadAction } from "@/server/actions/leads";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { formatPrice } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import type { Property } from "@/types";
 
 const bookingSchema = z.object({
@@ -31,10 +35,25 @@ export function PropertyStickyPanel({ property }: { property: Property }) {
       ? `${formatPrice(property.price)}/mo`
       : formatPrice(property.price);
 
+  const [pending, startTransition] = useTransition();
   const form = useForm<BookingValues>({
     resolver: zodResolver(bookingSchema),
     defaultValues: { name: "", email: "", phone: "", message: "" },
   });
+
+  function onSubmit(values: BookingValues) {
+    startTransition(async () => {
+      const result = await createLeadAction({ propertyId: property.id, ...values });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Request received", {
+        description: "Our concierge team will call to confirm your visit window.",
+      });
+      form.reset();
+    });
+  }
 
   return (
     <div className="space-y-6 lg:sticky lg:top-24">
@@ -55,34 +74,60 @@ export function PropertyStickyPanel({ property }: { property: Property }) {
             </Button>
           </div>
           <Separator className="my-6" />
-          <div className="flex items-center gap-3">
+          <Link
+            href={`/agents/${property.agentId}`}
+            className="flex items-center gap-3 rounded-2xl transition-opacity hover:opacity-80"
+          >
             <Avatar className="h-12 w-12">
               <AvatarImage src={property.agentAvatar} alt={property.agentName} />
               <AvatarFallback>{property.agentName.slice(0, 2)}</AvatarFallback>
             </Avatar>
             <div>
               <p className="text-sm font-semibold">{property.agentName}</p>
-              <p className="text-xs text-muted-foreground">Listing director</p>
+              <p className="text-xs text-muted-foreground">
+                {property.agentAgency ?? "Listing agent"}
+              </p>
             </div>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs">
-              <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              Verified agent
-            </span>
-          </div>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <Button asChild className="rounded-full">
-              <a href={`tel:+15550000000`}>Call concierge</a>
-            </Button>
-            <Button asChild variant="outline" className="rounded-full">
-              <a href={`mailto:concierge@estate-elite.com`}>Email team</a>
+          </Link>
+          {property.agentVerified ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                Verified agent
+              </span>
+            </div>
+          ) : null}
+          <div
+            className={cn(
+              "mt-6 grid gap-3",
+              property.agentPhone ? "sm:grid-cols-2" : "sm:grid-cols-1"
+            )}
+          >
+            {property.agentPhone ? (
+              <Button asChild className="rounded-full">
+                <a href={`tel:${property.agentPhone.replace(/[^+\d]/g, "")}`}>
+                  <Phone className="mr-2 h-4 w-4" />
+                  {property.agentPhone}
+                </a>
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant={property.agentPhone ? "outline" : "default"}
+              className="rounded-full"
+              onClick={() => {
+                document
+                  .getElementById("enquiry-form")
+                  ?.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+            >
+              Message agent
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="rounded-3xl border-border/80">
+      <Card id="enquiry-form" className="scroll-mt-24 rounded-3xl border-border/80">
         <CardContent className="p-6 sm:p-8">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <CalendarClock className="h-4 w-4 text-primary" />
@@ -91,15 +136,7 @@ export function PropertyStickyPanel({ property }: { property: Property }) {
           <p className="mt-2 text-xs text-muted-foreground">
             Share your ideal windows — we coordinate with the listing desk and confirm by phone.
           </p>
-          <form
-            className="mt-6 space-y-4"
-            onSubmit={form.handleSubmit(() => {
-              toast.success("Request received", {
-                description: "Our concierge team will call to confirm your visit window.",
-              });
-              form.reset();
-            })}
-          >
+          <form className="mt-6 space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
             <div className="space-y-2">
               <Label htmlFor="name">Full name</Label>
               <Input id="name" {...form.register("name")} />
@@ -130,7 +167,8 @@ export function PropertyStickyPanel({ property }: { property: Property }) {
                 <p className="text-xs text-destructive">{form.formState.errors.message.message}</p>
               ) : null}
             </div>
-            <Button type="submit" className="w-full rounded-full" disabled={form.formState.isSubmitting}>
+            <Button type="submit" className="w-full rounded-full" disabled={pending}>
+              {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Submit booking request
             </Button>
           </form>

@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # Optional. Default development DB is local Postgres 18 on 5432
+    # (TablePlus: 127.0.0.1:5432, user estate, password estate, db estate_elite).
+    # Use this compose file only if you want a Dockerized database instead.
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: estate
+      POSTGRES_PASSWORD: estate
+      POSTGRES_DB: estate_elite
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U estate -d estate_elite"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

@@ -13,6 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { signOutAction } from "@/server/actions/auth";
 import { cn } from "@/lib/utils";
 
 function DashboardNavLinks({
@@ -58,10 +59,12 @@ function DashboardNavLinks({
 export function DashboardShell({
   title,
   nav,
+  user,
   children,
 }: {
   title: string;
   nav: { href: string; label: string }[];
+  user?: { name?: string | null; email?: string | null };
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -83,11 +86,18 @@ export function DashboardShell({
             </p>
           </div>
           <DashboardNavLinks nav={nav} pathname={pathname} />
-          <div className="mt-auto flex items-center justify-between border-t border-border pt-5">
-            <ThemeToggle />
-            <Button asChild variant="outline" size="sm">
-              <Link href="/">Exit</Link>
-            </Button>
+          <div className="mt-auto space-y-3 border-t border-border pt-5">
+            {user?.email ? (
+              <p className="truncate px-1 text-xs text-muted-foreground">{user.name ?? user.email}</p>
+            ) : null}
+            <div className="flex items-center justify-between">
+              <ThemeToggle />
+              <form action={signOutAction}>
+                <Button type="submit" variant="outline" size="sm">
+                  Sign out
+                </Button>
+              </form>
+            </div>
           </div>
         </div>
       </aside>

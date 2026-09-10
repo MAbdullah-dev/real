@@ -1,16 +1,11 @@
+import { getPostBySlug, listPublishedPostSlugs } from "@/server/content";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-const posts: Record<string, { title: string; body: string }> = {
-  "luxury-visit-design": {
-    title: "Designing luxury visits like hospitality",
-    body: "The best property platforms borrow operational rigor from hospitality: predictable arrivals, host continuity, and surprise removal. Visits should feel inevitable, not improvised.",
-  },
-  "media-standards": {
-    title: "Media standards that actually convert",
-    body: "Buyers decide in seconds — lead with honest light, show volume through sequence, and never hide awkward corners. Authenticity signals trust.",
-  },
-};
+export async function generateStaticParams() {
+  const posts = await listPublishedPostSlugs();
+  return posts.map(({ slug }) => ({ slug }));
+}
 
 export async function generateMetadata({
   params,
@@ -18,14 +13,14 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const p = posts[slug];
+  const p = await getPostBySlug(slug);
   if (!p) return {};
   return { title: p.title };
 }
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const p = posts[slug];
+  const p = await getPostBySlug(slug);
   if (!p) notFound();
 
   return (

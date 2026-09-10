@@ -1,9 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
+import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+
+import { sendContactMessageAction } from "@/server/actions/contact";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +25,20 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 export default function ContactPage() {
+  const [pending, startTransition] = useTransition();
   const form = useForm<Values>({ resolver: zodResolver(schema) });
+
+  function onSubmit(values: Values) {
+    startTransition(async () => {
+      const result = await sendContactMessageAction(values);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Message sent", { description: "Our team will reply shortly." });
+      form.reset();
+    });
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
@@ -31,13 +48,7 @@ export default function ContactPage() {
       </p>
       <Card className="mt-10 rounded-3xl">
         <CardContent className="p-8">
-          <form
-            className="space-y-4"
-            onSubmit={form.handleSubmit(() => {
-              toast.success("Message sent", { description: "Our team will reply shortly." });
-              form.reset();
-            })}
-          >
+          <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
@@ -56,7 +67,8 @@ export default function ContactPage() {
               <Label htmlFor="message">How can we help?</Label>
               <Textarea id="message" {...form.register("message")} />
             </div>
-            <Button type="submit" className="rounded-full">
+            <Button type="submit" className="rounded-full" disabled={pending}>
+              {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Send message
             </Button>
           </form>

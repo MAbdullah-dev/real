@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatPrice } from "@/lib/utils";
 import type { Property } from "@/types";
+import { useSession } from "next-auth/react";
 import { useWishlistStore } from "@/store/wishlist-store";
+import { toggleWishlist } from "@/server/actions/wishlist";
 
 interface PropertyCardProps {
   property: Property;
@@ -19,6 +21,7 @@ interface PropertyCardProps {
 }
 
 export function PropertyCard({ property, index = 0, layout = "default" }: PropertyCardProps) {
+  const { data: session } = useSession();
   const toggle = useWishlistStore((s) => s.toggle);
   const saved = useWishlistStore((s) => s.ids.includes(property.id));
   const isShowcase = layout === "showcase";
@@ -93,6 +96,7 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
               onClick={(e) => {
                 e.preventDefault();
                 toggle(property.id);
+                if (session) void toggleWishlist(property.id);
               }}
               aria-pressed={saved}
               aria-label={saved ? "Remove from wishlist" : "Save property"}

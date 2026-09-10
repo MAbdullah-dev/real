@@ -41,6 +41,10 @@ export interface Property {
   agentId: string;
   agentName: string;
   agentAvatar: string;
+  /** Profile fields are absent on the seed source and when an agent has no profile. */
+  agentAgency?: string;
+  agentPhone?: string;
+  agentVerified?: boolean;
   badges?: string[];
   videoUrl?: string;
   coordinates?: { lat: number; lng: number };

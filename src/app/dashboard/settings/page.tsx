@@ -1,85 +1,82 @@
-"use client";
+import { Suspense } from "react";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
-
-import { Button } from "@/components/ui/button";
+import { PasswordForm } from "@/components/dashboard/password-form";
+import { ProfileForm } from "@/components/dashboard/profile-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/server/auth";
+import { getActiveSubscription } from "@/server/subscriptions";
 
-const profileSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-});
-
-type Profile = z.infer<typeof profileSchema>;
-
-export default function UserSettingsPage() {
-  const form = useForm<Profile>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: { name: "Guest user", email: "you@example.com" },
-  });
+async function SettingsContent() {
+  const session = await requireAuth();
+  const [user, subscription] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true, email: true, image: true, passwordHash: true },
+    }),
+    getActiveSubscription(session.user.id),
+  ]);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Profile, security, and billing preferences.</p>
-      </div>
+    <>
       <Card className="rounded-3xl">
         <CardHeader>
           <CardTitle>Profile</CardTitle>
         </CardHeader>
         <CardContent>
-          <form
-            className="space-y-4"
-            onSubmit={form.handleSubmit(() => toast.success("Profile saved (demo)"))}
-          >
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" {...form.register("name")} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...form.register("email")} />
-            </div>
-            <Button type="submit" className="rounded-full">
-              Save
-            </Button>
-          </form>
+          <ProfileForm
+            defaultValues={{ name: user?.name ?? "", image: user?.image ?? "" }}
+            email={user?.email ?? ""}
+          />
         </CardContent>
       </Card>
+
       <Card className="rounded-3xl">
         <CardHeader>
-          <CardTitle>Security</CardTitle>
+          <CardTitle>Password</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="font-medium">Two-factor authentication</p>
-              <p className="text-muted-foreground">Protect high-value booking actions.</p>
-            </div>
-            <Switch />
-          </div>
-          <Separator />
-          <Button variant="outline" className="rounded-full">
-            Change password
-          </Button>
+        <CardContent>
+          {user?.passwordHash ? (
+            <PasswordForm />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              You sign in with a social provider, so there is no password to change.
+            </p>
+          )}
         </CardContent>
       </Card>
+
       <Card className="rounded-3xl">
         <CardHeader>
-          <CardTitle>Payment history</CardTitle>
+          <CardTitle>Billing</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Stripe CustomerPortal deep link mounts here for visit fees and concierge retainers.
+          {subscription
+            ? `${subscription.plan.name} · ${subscription.status}${
+                subscription.currentPeriodEnd
+                  ? ` · renews ${subscription.currentPeriodEnd.toLocaleDateString("en-US")}`
+                  : ""
+              }`
+            : "No active subscription. Agent plans are managed from the agent console."}
         </CardContent>
       </Card>
+    </>
+  );
+}
+
+export default function UserSettingsPage() {
+  return (
+    <div className="mx-auto max-w-2xl space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Profile, password, and billing preferences.
+        </p>
+      </div>
+      <Suspense fallback={<Skeleton className="h-96 w-full rounded-3xl" />}>
+        <SettingsContent />
+      </Suspense>
     </div>
   );
 }

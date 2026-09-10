@@ -1,62 +1,65 @@
-"use client";
+import { Suspense } from "react";
 
+import { ViewsLeadsChart } from "@/components/charts/trend-charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getAgentKpis, getDailyStats } from "@/server/analytics";
+import { requireRole } from "@/server/auth";
 
-const data = [
-  { label: "Mon", views: 420, leads: 18 },
-  { label: "Tue", views: 510, leads: 22 },
-  { label: "Wed", views: 480, leads: 20 },
-  { label: "Thu", views: 620, leads: 27 },
-  { label: "Fri", views: 690, leads: 31 },
-  { label: "Sat", views: 740, leads: 34 },
-  { label: "Sun", views: 700, leads: 30 },
-];
+async function AnalyticsContent() {
+  const session = await requireRole(["AGENT", "ADMIN"]);
+  const [data, kpis] = await Promise.all([
+    getDailyStats(14, session.user.id),
+    getAgentKpis(session.user.id),
+  ]);
+
+  const cards = [
+    { label: "Listing views", value: kpis.views },
+    { label: "Visit requests", value: kpis.bookings },
+    { label: "Enquiries", value: kpis.leads },
+    { label: "Conversion", value: `${kpis.conversion}%` },
+  ];
+
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((card) => (
+          <Card key={card.label} className="rounded-3xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {card.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-semibold tabular-nums">{card.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Card className="rounded-3xl">
+        <CardHeader>
+          <CardTitle>Views vs enquiries · last 14 days</CardTitle>
+        </CardHeader>
+        <CardContent className="h-80">
+          <ViewsLeadsChart data={data} />
+        </CardContent>
+      </Card>
+    </>
+  );
+}
 
 export default function AgentAnalyticsPage() {
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Funnel metrics with exportable cohorts.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Traffic and enquiry volume across your listings.
+        </p>
       </div>
-      <Card className="rounded-3xl">
-        <CardHeader>
-          <CardTitle>Views vs qualified leads</CardTitle>
-        </CardHeader>
-        <CardContent className="h-[320px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
-              <defs>
-                <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="label" stroke="var(--color-muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 16,
-                  borderColor: "var(--color-border)",
-                  background: "var(--color-popover)",
-                }}
-              />
-              <Area type="monotone" dataKey="views" stroke="var(--color-primary)" fillOpacity={1} fill="url(#colorViews)" />
-              <Area type="monotone" dataKey="leads" stroke="var(--color-accent)" fillOpacity={0} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      <Suspense fallback={<Skeleton className="h-96 w-full rounded-3xl" />}>
+        <AnalyticsContent />
+      </Suspense>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -11,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { registerAction } from "@/server/actions/auth";
 
 const schema = z.object({
   name: z.string().min(2),
@@ -23,6 +25,19 @@ type Values = z.infer<typeof schema>;
 export default function RegisterPage() {
   const guest = useForm<Values>({ resolver: zodResolver(schema) });
   const agent = useForm<Values>({ resolver: zodResolver(schema) });
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function submit(values: Values, asAgent: boolean) {
+    setError(null);
+    startTransition(async () => {
+      const result = await registerAction({ ...values, asAgent });
+      if (result.error) {
+        setError(result.error);
+        toast.error(result.error);
+      }
+    });
+  }
 
   return (
     <Card className="glass-panel rounded-3xl border-white/20 shadow-[var(--shadow-soft)]">
@@ -43,10 +58,7 @@ export default function RegisterPage() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="guest">
-            <form
-              className="mt-4 space-y-4"
-              onSubmit={guest.handleSubmit(() => toast.success("Account created (demo)"))}
-            >
+            <form className="mt-4 space-y-4" onSubmit={guest.handleSubmit((values) => submit(values, false))}>
               <div className="space-y-2">
                 <Label htmlFor="g-name" className="text-primary-foreground">
                   Name
@@ -65,18 +77,14 @@ export default function RegisterPage() {
                 </Label>
                 <Input id="g-password" type="password" className="bg-background/90" {...guest.register("password")} />
               </div>
-              <Button type="submit" className="w-full rounded-full">
-                Continue
+              {error ? <p className="text-sm text-red-200">{error}</p> : null}
+              <Button type="submit" className="w-full rounded-full" disabled={pending}>
+                {pending ? "Creating…" : "Continue"}
               </Button>
             </form>
           </TabsContent>
           <TabsContent value="agent">
-            <form
-              className="mt-4 space-y-4"
-              onSubmit={agent.handleSubmit(() => {
-                toast.success("Check your inbox for verification");
-              })}
-            >
+            <form className="mt-4 space-y-4" onSubmit={agent.handleSubmit((values) => submit(values, true))}>
               <div className="space-y-2">
                 <Label htmlFor="a-name" className="text-primary-foreground">
                   Name
@@ -95,11 +103,12 @@ export default function RegisterPage() {
                 </Label>
                 <Input id="a-password" type="password" className="bg-background/90" {...agent.register("password")} />
               </div>
-              <Button type="submit" className="w-full rounded-full">
-                Start agent onboarding
+              {error ? <p className="text-sm text-red-200">{error}</p> : null}
+              <Button type="submit" className="w-full rounded-full" disabled={pending}>
+                {pending ? "Creating…" : "Start agent onboarding"}
               </Button>
               <p className="text-center text-xs text-primary-foreground/70">
-                You’ll verify OTP, then select a listing plan.
+                You’ll land in onboarding, then the agent console.
               </p>
             </form>
           </TabsContent>
