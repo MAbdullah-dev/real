@@ -1,18 +1,77 @@
 import type {
-  AgentProfile,
+  Agency,
+  BrokerProfile,
   Plan,
   Property as PropertyRow,
   PropertyImage,
+  SellerProfile,
   User,
 } from "@prisma/client";
-import type { Property, PropertyCategory, SubscriptionPlan } from "@/types";
+import type {
+  ListingContact,
+  Property,
+  PropertyCategory,
+  SubscriptionPlan,
+} from "@/types";
 
 export type PropertyWithAgent = PropertyRow & {
   images: PropertyImage[];
   agent: Pick<User, "id" | "name" | "image"> & {
-    agentProfile: Pick<AgentProfile, "agency" | "phone" | "verified"> | null;
+    brokerProfile: Pick<BrokerProfile, "phone" | "whatsapp" | "title" | "status"> | null;
+    sellerProfile: Pick<SellerProfile, "phone" | "status"> | null;
   };
+  agency: Pick<Agency, "name" | "phone" | "status"> | null;
 };
+
+/**
+ * Ownership shape decides who the buyer talks to:
+ * an agency listing routes to the firm, a seller-managed listing to the owner,
+ * and anything else to the broker holding the mandate.
+ */
+export function toListingContact(row: PropertyWithAgent): ListingContact {
+  const name = row.agent.name ?? "Listing contact";
+  const avatar = row.agent.image ?? "";
+
+  if (row.agency) {
+    return {
+      kind: "agency",
+      userId: row.agentId,
+      name: row.agency.name ?? name,
+      avatar,
+      org: row.agency.name ? `${name} · ${row.agency.name}` : name,
+      phone: row.agency.phone ?? undefined,
+      verified: row.agency.status === "active",
+      profileHref: `/agents/${row.agentId}`,
+    };
+  }
+
+  if (row.sellerId && row.sellerId === row.agentId) {
+    return {
+      kind: "seller",
+      userId: row.agentId,
+      name,
+      avatar,
+      org: "Property owner",
+      phone: row.agent.sellerProfile?.phone ?? undefined,
+      verified: row.agent.sellerProfile?.status === "active",
+    };
+  }
+
+  const broker = row.agent.brokerProfile;
+  return {
+    kind: "broker",
+    userId: row.agentId,
+    name,
+    avatar,
+    org: row.sellerId
+      ? "Broker representing the owner"
+      : (broker?.title ?? "Independent broker"),
+    phone: broker?.phone ?? undefined,
+    whatsapp: broker?.whatsapp ?? undefined,
+    verified: broker?.status === "active",
+    profileHref: broker ? `/agents/${row.agentId}` : undefined,
+  };
+}
 
 export function toProperty(row: PropertyWithAgent): Property {
   const images = [...row.images].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -40,11 +99,7 @@ export function toProperty(row: PropertyWithAgent): Property {
     amenities: row.amenities,
     furnished: row.furnished,
     agentId: row.agentId,
-    agentName: row.agent.name ?? "Agent",
-    agentAvatar: row.agent.image ?? "",
-    agentAgency: row.agent.agentProfile?.agency ?? undefined,
-    agentPhone: row.agent.agentProfile?.phone ?? undefined,
-    agentVerified: row.agent.agentProfile?.verified ?? false,
+    contact: toListingContact(row),
     badges: row.badges.length ? row.badges : undefined,
     videoUrl: row.videoUrl ?? undefined,
     coordinates:

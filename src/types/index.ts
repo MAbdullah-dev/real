@@ -18,6 +18,24 @@ export type PropertyCategory =
   | "trending"
   | "smart-home";
 
+export type ListingContactKind = "agency" | "broker" | "seller";
+
+/** Who a buyer actually reaches for a listing, resolved from the ownership shape. */
+export interface ListingContact {
+  kind: ListingContactKind;
+  /** The user who manages the listing and receives requests. */
+  userId: string;
+  name: string;
+  avatar: string;
+  /** Agency name, broker title, or owner label. */
+  org: string;
+  phone?: string;
+  whatsapp?: string;
+  verified: boolean;
+  /** Public profile page — brokers and agencies have one, private owners do not. */
+  profileHref?: string;
+}
+
 export interface Property {
   id: string;
   slug: string;
@@ -39,24 +57,10 @@ export interface Property {
   amenities: string[];
   furnished: boolean;
   agentId: string;
-  agentName: string;
-  agentAvatar: string;
-  /** Profile fields are absent on the seed source and when an agent has no profile. */
-  agentAgency?: string;
-  agentPhone?: string;
-  agentVerified?: boolean;
+  contact: ListingContact;
   badges?: string[];
   videoUrl?: string;
   coordinates?: { lat: number; lng: number };
-}
-
-export interface BookingRequest {
-  id: string;
-  propertyId: string;
-  propertyTitle: string;
-  status: "pending" | "confirmed" | "declined";
-  requestedAt: string;
-  visitDate?: string;
 }
 
 export interface SubscriptionPlan {

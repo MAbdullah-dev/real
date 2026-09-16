@@ -42,7 +42,10 @@ const exploreLinks = [
   { href: "/search", label: "Discover" },
   { href: "/categories/luxury", label: "Luxury collection" },
   { href: "/categories/new-project", label: "New projects" },
-  { href: "/pricing", label: "Agent plans" },
+  { href: "/for-sellers", label: "For sellers" },
+  { href: "/for-brokers", label: "For brokers" },
+  { href: "/for-agencies", label: "For agencies" },
+  { href: "/pricing", label: "Agency plans" },
   { href: "/blog", label: "Journal" },
 ];
 
@@ -94,9 +97,17 @@ function MobileNav({ isHome }: { isHome: boolean }) {
                   <Button asChild className="w-full rounded-full">
                     <Link href="/admin">Admin console</Link>
                   </Button>
-                ) : role === "AGENT" ? (
+                ) : role === "AGENCY" ? (
                   <Button asChild className="w-full rounded-full">
-                    <Link href="/agent">Agent console</Link>
+                    <Link href="/agency">Agency console</Link>
+                  </Button>
+                ) : role === "BROKER" ? (
+                  <Button asChild className="w-full rounded-full">
+                    <Link href="/broker">Broker console</Link>
+                  </Button>
+                ) : role === "SELLER" ? (
+                  <Button asChild className="w-full rounded-full">
+                    <Link href="/seller">Seller console</Link>
                   </Button>
                 ) : (
                   <Button asChild className="w-full rounded-full">
@@ -255,11 +266,27 @@ export function SiteHeader() {
                   </Link>
                 </DropdownMenuItem>
               ) : null}
-              {role === "AGENT" || role === "ADMIN" ? (
+              {role === "AGENCY" || role === "ADMIN" ? (
                 <DropdownMenuItem asChild>
-                  <Link href="/agent" className="gap-2">
+                  <Link href="/agency" className="gap-2">
                     <Building2 className="h-4 w-4" />
-                    Agent console
+                    Agency console
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
+              {role === "BROKER" || role === "ADMIN" ? (
+                <DropdownMenuItem asChild>
+                  <Link href="/broker" className="gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Broker console
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
+              {role === "SELLER" || role === "ADMIN" ? (
+                <DropdownMenuItem asChild>
+                  <Link href="/seller" className="gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Seller console
                   </Link>
                 </DropdownMenuItem>
               ) : null}
@@ -303,7 +330,19 @@ export function SiteHeader() {
               )}
               variant={isHome ? "outline" : "default"}
             >
-              <Link href={role === "ADMIN" ? "/admin" : role === "AGENT" ? "/agent" : "/dashboard"}>
+              <Link
+                href={
+                  role === "ADMIN"
+                    ? "/admin"
+                    : role === "AGENCY"
+                      ? "/agency"
+                      : role === "BROKER"
+                        ? "/broker"
+                        : role === "SELLER"
+                          ? "/seller"
+                          : "/dashboard"
+                }
+              >
                 Account
               </Link>
             </Button>

@@ -13,12 +13,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   moderatePropertyAction,
+  reviewCredentialAction,
   setAdminSettingAction,
-  setAgentVerifiedAction,
+  setAgencyStatusAction,
+  setBrokerStatusAction,
+  setSellerStatusAction,
   setUserRoleAction,
 } from "@/server/actions/admin";
+import { CREDENTIAL_LABELS } from "@/lib/agency-labels";
 
 export function PropertyModerationControls({ id, status }: { id: string; status: string }) {
   const router = useRouter();
@@ -78,7 +83,7 @@ export function UserRoleSelect({
   role,
 }: {
   userId: string;
-  role: "USER" | "AGENT" | "ADMIN";
+  role: "USER" | "SELLER" | "BROKER" | "AGENCY" | "ADMIN";
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -91,7 +96,7 @@ export function UserRoleSelect({
         startTransition(async () => {
           const result = await setUserRoleAction({
             userId,
-            role: next as "USER" | "AGENT" | "ADMIN",
+            role: next as "USER" | "SELLER" | "BROKER" | "AGENCY" | "ADMIN",
           });
           if (result.error) {
             toast.error(result.error);
@@ -102,45 +107,280 @@ export function UserRoleSelect({
         })
       }
     >
-      <SelectTrigger className="h-9 w-32">
+      <SelectTrigger className="h-9 w-36">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="USER">Guest</SelectItem>
-        <SelectItem value="AGENT">Agent</SelectItem>
+        <SelectItem value="USER">Buyer</SelectItem>
+        <SelectItem value="SELLER">Seller</SelectItem>
+        <SelectItem value="BROKER">Broker</SelectItem>
+        <SelectItem value="AGENCY">Agency</SelectItem>
         <SelectItem value="ADMIN">Admin</SelectItem>
       </SelectContent>
     </Select>
   );
 }
 
-export function AgentVerifiedSwitch({
+export function AgencyStatusControls({
+  agencyId,
+  status,
+}: {
+  agencyId: string;
+  status: string;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = React.useTransition();
+  const [note, setNote] = React.useState("");
+
+  function run(next: "active" | "rejected" | "suspended" | "pending_review") {
+    startTransition(async () => {
+      const result = await setAgencyStatusAction({
+        agencyId,
+        status: next,
+        statusNote: note || undefined,
+      });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Agency updated");
+      setNote("");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <Textarea
+        placeholder="Note (required to reject)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        className="min-h-16 text-sm"
+      />
+      <div className="flex flex-wrap justify-end gap-2">
+        {status !== "active" ? (
+          <Button size="sm" className="rounded-full" disabled={pending} onClick={() => run("active")}>
+            Approve
+          </Button>
+        ) : null}
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-full"
+          disabled={pending}
+          onClick={() => run("rejected")}
+        >
+          Reject
+        </Button>
+        {status !== "suspended" ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="rounded-full"
+            disabled={pending}
+            onClick={() => run("suspended")}
+          >
+            Suspend
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function BrokerStatusControls({
   userId,
-  verified,
+  status,
 }: {
   userId: string;
-  verified: boolean;
+  status: string;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = React.useTransition();
+  const [note, setNote] = React.useState("");
+
+  function run(next: "active" | "rejected" | "suspended" | "pending_review") {
+    startTransition(async () => {
+      const result = await setBrokerStatusAction({
+        userId,
+        status: next,
+        statusNote: note || undefined,
+      });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Broker updated");
+      setNote("");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <Textarea
+        placeholder="Note (required to reject)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        className="min-h-16 text-sm"
+      />
+      <div className="flex flex-wrap justify-end gap-2">
+        {status !== "active" ? (
+          <Button size="sm" className="rounded-full" disabled={pending} onClick={() => run("active")}>
+            Approve
+          </Button>
+        ) : null}
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-full"
+          disabled={pending}
+          onClick={() => run("rejected")}
+        >
+          Reject
+        </Button>
+        {status !== "suspended" ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="rounded-full"
+            disabled={pending}
+            onClick={() => run("suspended")}
+          >
+            Suspend
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function SellerStatusControls({
+  userId,
+  status,
+}: {
+  userId: string;
+  status: string;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = React.useTransition();
+  const [note, setNote] = React.useState("");
+
+  function run(next: "active" | "rejected" | "suspended" | "pending_review") {
+    startTransition(async () => {
+      const result = await setSellerStatusAction({
+        userId,
+        status: next,
+        statusNote: note || undefined,
+      });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Seller updated");
+      setNote("");
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <Textarea
+        placeholder="Note (required to reject)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        className="min-h-16 text-sm"
+      />
+      <div className="flex flex-wrap justify-end gap-2">
+        {status !== "active" ? (
+          <Button size="sm" className="rounded-full" disabled={pending} onClick={() => run("active")}>
+            Approve
+          </Button>
+        ) : null}
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-full"
+          disabled={pending}
+          onClick={() => run("rejected")}
+        >
+          Reject
+        </Button>
+        {status !== "suspended" ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="rounded-full"
+            disabled={pending}
+            onClick={() => run("suspended")}
+          >
+            Suspend
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function CredentialReviewButton({
+  credentialId,
+  status,
+}: {
+  credentialId: string;
+  status: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
 
   return (
-    <Switch
-      checked={verified}
-      disabled={pending}
-      aria-label="Verified agent"
-      onCheckedChange={(next) =>
-        startTransition(async () => {
-          const result = await setAgentVerifiedAction(userId, next);
-          if (result.error) {
-            toast.error(result.error);
-            return;
+    <div className="flex gap-2">
+      {status !== "approved" ? (
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-full"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await reviewCredentialAction({
+                credentialId,
+                status: "approved",
+              });
+              if (result.error) toast.error(result.error);
+              else router.refresh();
+            })
           }
-          router.refresh();
-        })
-      }
-    />
+        >
+          Approve doc
+        </Button>
+      ) : null}
+      {status !== "rejected" ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="rounded-full"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await reviewCredentialAction({
+                credentialId,
+                status: "rejected",
+                reviewNote: "Please re-upload a clearer scan.",
+              });
+              if (result.error) toast.error(result.error);
+              else router.refresh();
+            })
+          }
+        >
+          Reject doc
+        </Button>
+      ) : null}
+    </div>
   );
+}
+
+export function credentialLabel(type: string) {
+  return CREDENTIAL_LABELS[type as keyof typeof CREDENTIAL_LABELS] ?? type;
 }
 
 export function AdminSettingSwitch({
@@ -164,7 +404,6 @@ export function AdminSettingSwitch({
             toast.error(result.error);
             return;
           }
-          toast.success("Setting saved");
           router.refresh();
         })
       }

@@ -1,12 +1,12 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { revalidatePath } from "next/cache";
-import { updateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireRole } from "@/server/auth";
+import { requireAgency } from "@/server/agency";
+import { requireAuth } from "@/server/auth";
 
 export type ProfileActionResult = { ok?: true; error?: string };
 
@@ -89,22 +89,26 @@ const agentProfileSchema = z.object({
 export async function updateAgentProfileAction(
   input: z.input<typeof agentProfileSchema>
 ): Promise<ProfileActionResult> {
-  const session = await requireRole(["AGENT", "ADMIN"]);
+  const { session, agency } = await requireAgency();
+  if (!agency) return { error: "No agency found." };
+
   const parsed = agentProfileSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
   }
 
-  await prisma.agentProfile.upsert({
-    where: { userId: session.user.id },
-    update: parsed.data,
-    create: { userId: session.user.id, ...parsed.data },
+  await prisma.agency.update({
+    where: { id: agency.id },
+    data: {
+      name: parsed.data.agency,
+      phone: parsed.data.phone,
+      bio: parsed.data.bio,
+    },
   });
 
-  // Listing pages embed the agent's contact details, so they need busting too.
   updateTag("agents");
   updateTag("properties");
   updateTag(`agent-${session.user.id}`);
-  revalidatePath("/agent/profile");
+  revalidatePath("/agency/profile");
   return { ok: true };
 }

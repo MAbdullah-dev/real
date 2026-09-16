@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Drawer,
   DrawerContent,
@@ -219,15 +218,6 @@ function FiltersForm({
     </div>
   );
 
-  const parkingRow = (
-    <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5">
-      <Checkbox id="features-parking" />
-      <Label htmlFor="features-parking" className="cursor-pointer font-normal text-sm leading-none">
-        Parking / EV
-      </Label>
-    </div>
-  );
-
   const actionsRow = (
     <div className="flex flex-wrap items-center justify-end gap-2">
       <Button type="button" variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={reset}>
@@ -252,8 +242,7 @@ function FiltersForm({
 
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5">{priceField}</div>
 
-        <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          {parkingRow}
+        <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-end">
           {actionsRow}
         </div>
       </div>
@@ -270,7 +259,6 @@ function FiltersForm({
       </div>
       {priceField}
       {furnishedField}
-      {parkingRow}
       <Separator />
       <div className="flex gap-2">
         <Button type="button" className="flex-1 rounded-full" onClick={apply}>
@@ -312,12 +300,15 @@ export function SearchExplorePanel({ defaultQuery }: { defaultQuery: string }) {
       const next = new URLSearchParams();
       const q = qDraft.trim();
       if (q) next.set("q", q);
+      // Sort is a display preference, not a filter — keep it across refinements.
+      const sort = params.get("sort");
+      if (sort) next.set("sort", sort);
       Object.entries(filters).forEach(([k, v]) => {
         if (v && v !== "0" && v !== "all") next.set(k, v);
       });
       router.push(`/search?${next.toString()}`);
     },
-    [router, qDraft]
+    [router, qDraft, params]
   );
 
   const mergeSearchOnly = useCallback(() => {

@@ -5,22 +5,32 @@ import { updateTag } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function mergeWishlist(ids: string[]) {
+/**
+ * Folds anything saved while signed out into the account, then returns the
+ * account's full list so the client store matches the database.
+ */
+export async function mergeWishlist(ids: string[]): Promise<string[]> {
   const session = await auth();
-  if (!session?.user?.id || ids.length === 0) return;
+  if (!session?.user?.id) return [];
 
   const unique = [...new Set(ids)].slice(0, 100);
-  const properties = await prisma.property.findMany({
-    where: { id: { in: unique } },
-    select: { id: true },
-  });
+  if (unique.length > 0) {
+    const properties = await prisma.property.findMany({
+      where: { id: { in: unique }, status: "published" },
+      select: { id: true },
+    });
+    await prisma.wishlistItem.createMany({
+      data: properties.map((p) => ({ userId: session.user.id, propertyId: p.id })),
+      skipDuplicates: true,
+    });
+    updateTag("wishlist");
+  }
 
-  await prisma.wishlistItem.createMany({
-    data: properties.map((p) => ({ userId: session.user.id, propertyId: p.id })),
-    skipDuplicates: true,
+  const saved = await prisma.wishlistItem.findMany({
+    where: { userId: session.user.id },
+    select: { propertyId: true },
   });
-
-  updateTag("wishlist");
+  return saved.map((item) => item.propertyId);
 }
 
 export async function toggleWishlist(propertyId: string) {

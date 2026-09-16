@@ -36,15 +36,15 @@ export function recordPropertyLead(propertyId: string) {
 
 export type DailyPoint = { label: string; date: string; views: number; leads: number };
 
-/** Daily views/leads for the last `days`, zero-filled. Omit `agentId` for site-wide totals. */
-export async function getDailyStats(days = 14, agentId?: string): Promise<DailyPoint[]> {
+/** Daily views/leads for the last `days`, zero-filled. Pass `agencyId` for an agency console. */
+export async function getDailyStats(days = 14, agencyId?: string): Promise<DailyPoint[]> {
   await connection();
   const dates = lastNDays(days);
   const rows = await prisma.propertyViewDaily.groupBy({
     by: ["date"],
     where: {
       date: { gte: dates[0] },
-      ...(agentId ? { property: { agentId } } : {}),
+      ...(agencyId ? { property: { agencyId } } : {}),
     },
     _sum: { views: true, leads: true },
   });
@@ -63,14 +63,14 @@ export async function getDailyStats(days = 14, agentId?: string): Promise<DailyP
   });
 }
 
-export async function getAgentKpis(agentId: string) {
+export async function getAgentKpis(agencyId: string) {
   const [active, bookings, pendingBookings, leads, totals] = await Promise.all([
-    prisma.property.count({ where: { agentId, status: "published" } }),
-    prisma.booking.count({ where: { property: { agentId } } }),
-    prisma.booking.count({ where: { property: { agentId }, status: "pending" } }),
-    prisma.lead.count({ where: { property: { agentId } } }),
+    prisma.property.count({ where: { agencyId, status: "published" } }),
+    prisma.booking.count({ where: { property: { agencyId } } }),
+    prisma.booking.count({ where: { property: { agencyId }, status: "pending" } }),
+    prisma.lead.count({ where: { property: { agencyId } } }),
     prisma.propertyViewDaily.aggregate({
-      where: { property: { agentId } },
+      where: { property: { agencyId } },
       _sum: { views: true, leads: true },
     }),
   ]);
@@ -89,24 +89,28 @@ export async function getAgentKpis(agentId: string) {
 }
 
 export async function getAdminKpis() {
-  const [users, agents, properties, pendingReview, bookings, activeSubs, plans] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { role: "AGENT" } }),
-    prisma.property.count({ where: { status: "published" } }),
-    prisma.property.count({ where: { status: "pending_review" } }),
-    prisma.booking.count(),
-    prisma.subscription.findMany({
-      where: { status: { in: ["active", "trialing"] } },
-      include: { plan: { select: { priceMonthly: true } } },
-    }),
-    prisma.plan.count(),
-  ]);
+  const [users, brokers, agencies, properties, pendingReview, bookings, activeSubs, plans] =
+    await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { role: "BROKER" } }),
+      prisma.user.count({ where: { role: "AGENCY" } }),
+      prisma.property.count({ where: { status: "published" } }),
+      prisma.property.count({ where: { status: "pending_review" } }),
+      prisma.booking.count(),
+      prisma.subscription.findMany({
+        where: { status: { in: ["active", "trialing"] } },
+        include: { plan: { select: { priceMonthly: true } } },
+      }),
+      prisma.plan.count(),
+    ]);
 
   const mrr = activeSubs.reduce((total, sub) => total + sub.plan.priceMonthly, 0);
 
   return {
     users,
-    agents,
+    agents: brokers + agencies,
+    brokers,
+    agencies,
     properties,
     pendingReview,
     bookings,

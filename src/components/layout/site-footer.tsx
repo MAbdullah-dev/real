@@ -15,8 +15,9 @@ const columns = [
   {
     title: "Professionals",
     links: [
-      { href: "/pricing", label: "Agent subscriptions" },
-      { href: "/agent", label: "Agent dashboard" },
+      { href: "/for-brokers", label: "For brokers" },
+      { href: "/for-agencies", label: "For agencies" },
+      { href: "/pricing", label: "Agency plans" },
       { href: "/contact", label: "Partner with us" },
       { href: "/faq", label: "FAQ" },
     ],

@@ -3,18 +3,26 @@ import "server-only";
 import type { SubscriptionStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { getMembership } from "@/server/agency";
 
-/** Agents without a paid subscription may keep one live listing. */
+/** Agencies without a paid subscription may keep one live listing. */
 export const FREE_LISTING_LIMIT = 1;
 
 const ACTIVE_STATUSES: SubscriptionStatus[] = ["active", "trialing"];
 
-export async function getActiveSubscription(userId: string) {
+export async function getActiveSubscriptionForAgency(agencyId: string) {
   return prisma.subscription.findFirst({
-    where: { userId, status: { in: ACTIVE_STATUSES } },
+    where: { agencyId, status: { in: ACTIVE_STATUSES } },
     include: { plan: true },
     orderBy: { createdAt: "desc" },
   });
+}
+
+/** Resolve the caller's agency subscription via membership. */
+export async function getActiveSubscription(userId: string) {
+  const membership = await getMembership(userId);
+  if (!membership) return null;
+  return getActiveSubscriptionForAgency(membership.agencyId);
 }
 
 export type ListingAllowance = {
@@ -25,13 +33,30 @@ export type ListingAllowance = {
   used: number;
   remaining: number | null;
   canCreate: boolean;
+  agencyId: string | null;
 };
 
 export async function getListingAllowance(userId: string): Promise<ListingAllowance> {
+  const membership = await getMembership(userId);
+  if (!membership) {
+    return {
+      planId: null,
+      planName: "Free",
+      limit: FREE_LISTING_LIMIT,
+      used: 0,
+      remaining: FREE_LISTING_LIMIT,
+      canCreate: false,
+      agencyId: null,
+    };
+  }
+
   const [subscription, used] = await Promise.all([
-    getActiveSubscription(userId),
+    getActiveSubscriptionForAgency(membership.agencyId),
     prisma.property.count({
-      where: { agentId: userId, status: { in: ["draft", "pending_review", "published"] } },
+      where: {
+        agencyId: membership.agencyId,
+        status: { in: ["draft", "pending_review", "published"] },
+      },
     }),
   ]);
 
@@ -44,6 +69,7 @@ export async function getListingAllowance(userId: string): Promise<ListingAllowa
     used,
     remaining: limit == null ? null : Math.max(0, limit - used),
     canCreate: limit == null || used < limit,
+    agencyId: membership.agencyId,
   };
 }
 
@@ -51,27 +77,40 @@ export async function listSubscriptionsWithUsage() {
   const rows = await prisma.subscription.findMany({
     include: {
       plan: true,
-      user: { select: { id: true, name: true, email: true } },
+      agency: {
+        include: {
+          members: {
+            where: { role: "owner" },
+            include: { user: { select: { id: true, name: true, email: true } } },
+            take: 1,
+          },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
 
   const counts = await prisma.property.groupBy({
-    by: ["agentId"],
+    by: ["agencyId"],
     _count: { _all: true },
   });
-  const usage = new Map(counts.map((c) => [c.agentId, c._count._all]));
+  const usage = new Map(counts.map((c) => [c.agencyId, c._count._all]));
 
-  return rows.map((row) => ({
-    id: row.id,
-    status: row.status,
-    currentPeriodEnd: row.currentPeriodEnd,
-    planName: row.plan.name,
-    priceMonthly: row.plan.priceMonthly,
-    listingLimit: row.plan.listingLimit,
-    userId: row.userId,
-    userName: row.user.name ?? "Unknown",
-    userEmail: row.user.email ?? "",
-    listings: usage.get(row.userId) ?? 0,
-  }));
+  return rows.map((row) => {
+    const owner = row.agency.members[0]?.user;
+    return {
+      id: row.id,
+      status: row.status,
+      currentPeriodEnd: row.currentPeriodEnd,
+      planName: row.plan.name,
+      priceMonthly: row.plan.priceMonthly,
+      listingLimit: row.plan.listingLimit,
+      agencyId: row.agencyId,
+      agencyName: row.agency.name ?? "Unnamed agency",
+      userId: owner?.id ?? "",
+      userName: owner?.name ?? "Unknown",
+      userEmail: owner?.email ?? "",
+      listings: usage.get(row.agencyId) ?? 0,
+    };
+  });
 }

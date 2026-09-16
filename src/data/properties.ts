@@ -1,11 +1,15 @@
 import type { Property, PropertyPurpose } from "@/types";
 
 /** Seed source only — pages read from Prisma via `@/server/properties`. */
+export type SeedProperty = Omit<Property, "contact"> & {
+  agentName: string;
+  agentAvatar: string;
+};
 
 const imgs = (seed: string) =>
   `https://images.unsplash.com/${seed}?auto=format&fit=crop&w=1600&q=80`;
 
-export const MOCK_PROPERTIES: Property[] = [
+export const MOCK_PROPERTIES: SeedProperty[] = [
   {
     id: "1",
     slug: "skyline-residence-dubai-marina",

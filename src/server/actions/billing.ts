@@ -5,9 +5,9 @@ import { redirect } from "next/navigation";
 
 import { getStripe, siteUrl, stripeConfigured } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/server/auth";
+import { requireAgency } from "@/server/agency";
 import { createNotification } from "@/server/notifications";
-import { getActiveSubscription } from "@/server/subscriptions";
+import { getActiveSubscriptionForAgency } from "@/server/subscriptions";
 
 export type BillingActionResult = { ok?: true; error?: string; message?: string };
 
@@ -18,7 +18,9 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
  * subscription is activated locally so the rest of the app stays testable.
  */
 export async function startCheckoutAction(planId: string): Promise<BillingActionResult> {
-  const session = await requireRole(["AGENT", "ADMIN"]);
+  const { session, agency, isAdmin } = await requireAgency();
+  if (!agency && !isAdmin) return { error: "Complete agent onboarding first." };
+  if (!agency) return { error: "Admin accounts need an agency membership to subscribe." };
 
   const plan = await prisma.plan.findUnique({ where: { id: planId } });
   if (!plan) return { error: "That plan is not available." };
@@ -26,7 +28,7 @@ export async function startCheckoutAction(planId: string): Promise<BillingAction
   const stripe = getStripe();
 
   if (!stripe || !plan.stripePriceId) {
-    const existing = await getActiveSubscription(session.user.id);
+    const existing = await getActiveSubscriptionForAgency(agency.id);
     const currentPeriodEnd = new Date(Date.now() + THIRTY_DAYS_MS);
 
     if (existing) {
@@ -37,7 +39,7 @@ export async function startCheckoutAction(planId: string): Promise<BillingAction
     } else {
       await prisma.subscription.create({
         data: {
-          userId: session.user.id,
+          agencyId: agency.id,
           planId: plan.id,
           status: "active",
           currentPeriodEnd,
@@ -51,8 +53,9 @@ export async function startCheckoutAction(planId: string): Promise<BillingAction
       `You are now on the ${plan.name} plan.`
     );
 
-    revalidatePath("/agent/subscription");
-    revalidatePath("/agent");
+    revalidatePath("/agency/subscription");
+    revalidatePath("/agency");
+    revalidatePath("/auth/onboarding/agency");
     return {
       ok: true,
       message: stripeConfigured
@@ -62,7 +65,7 @@ export async function startCheckoutAction(planId: string): Promise<BillingAction
   }
 
   const existing = await prisma.subscription.findFirst({
-    where: { userId: session.user.id, stripeCustomerId: { not: null } },
+    where: { agencyId: agency.id, stripeCustomerId: { not: null } },
     select: { stripeCustomerId: true },
   });
 
@@ -72,10 +75,12 @@ export async function startCheckoutAction(planId: string): Promise<BillingAction
     ...(existing?.stripeCustomerId
       ? { customer: existing.stripeCustomerId }
       : { customer_email: session.user.email ?? undefined }),
-    client_reference_id: session.user.id,
-    metadata: { userId: session.user.id, planId: plan.id },
-    subscription_data: { metadata: { userId: session.user.id, planId: plan.id } },
-    success_url: `${siteUrl()}/agent/subscription?checkout=success`,
+    client_reference_id: agency.id,
+    metadata: { agencyId: agency.id, userId: session.user.id, planId: plan.id },
+    subscription_data: {
+      metadata: { agencyId: agency.id, userId: session.user.id, planId: plan.id },
+    },
+    success_url: `${siteUrl()}/agency/subscription?checkout=success`,
     cancel_url: `${siteUrl()}/checkout?checkout=cancelled`,
   });
 
@@ -84,12 +89,14 @@ export async function startCheckoutAction(planId: string): Promise<BillingAction
 }
 
 export async function openBillingPortalAction(): Promise<BillingActionResult> {
-  const session = await requireRole(["AGENT", "ADMIN"]);
+  const { agency } = await requireAgency();
+  if (!agency) return { error: "No agency found." };
+
   const stripe = getStripe();
   if (!stripe) return { error: "Stripe is not configured on this environment." };
 
   const subscription = await prisma.subscription.findFirst({
-    where: { userId: session.user.id, stripeCustomerId: { not: null } },
+    where: { agencyId: agency.id, stripeCustomerId: { not: null } },
     select: { stripeCustomerId: true },
   });
   if (!subscription?.stripeCustomerId) {
@@ -98,16 +105,17 @@ export async function openBillingPortalAction(): Promise<BillingActionResult> {
 
   const portal = await stripe.billingPortal.sessions.create({
     customer: subscription.stripeCustomerId,
-    return_url: `${siteUrl()}/agent/subscription`,
+    return_url: `${siteUrl()}/agency/subscription`,
   });
 
   redirect(portal.url);
 }
 
 export async function cancelSubscriptionAction(): Promise<BillingActionResult> {
-  const session = await requireRole(["AGENT", "ADMIN"]);
+  const { agency } = await requireAgency();
+  if (!agency) return { error: "No agency found." };
 
-  const subscription = await getActiveSubscription(session.user.id);
+  const subscription = await getActiveSubscriptionForAgency(agency.id);
   if (!subscription) return { error: "You do not have an active subscription." };
 
   const stripe = getStripe();
@@ -120,7 +128,7 @@ export async function cancelSubscriptionAction(): Promise<BillingActionResult> {
     data: { status: "canceled" },
   });
 
-  revalidatePath("/agent/subscription");
-  revalidatePath("/agent");
+  revalidatePath("/agency/subscription");
+  revalidatePath("/agency");
   return { ok: true, message: "Subscription cancelled." };
 }

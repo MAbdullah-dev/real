@@ -104,7 +104,7 @@ export function CheckoutForm({
             </Button>
             <p className="text-center text-xs text-muted-foreground">
               Manage or cancel anytime from{" "}
-              <Link href="/agent/subscription" className="underline">
+              <Link href="/agency/subscription" className="underline">
                 your subscription page
               </Link>
               .

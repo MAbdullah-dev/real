@@ -23,7 +23,14 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { createPropertyAction, updatePropertyAction } from "@/server/actions/properties";
+import {
+  createBrokerPropertyAction,
+  createPropertyAction,
+  createSellerPropertyAction,
+  updateBrokerPropertyAction,
+  updatePropertyAction,
+  updateSellerPropertyAction,
+} from "@/server/actions/properties";
 import { PROPERTY_CATEGORIES } from "@/server/property-input";
 
 const formSchema = z.object({
@@ -77,12 +84,14 @@ export function PropertyForm({
   defaultValues,
   canPublish,
   uploadsEnabled,
+  variant = "agency",
 }: {
   mode: "create" | "edit";
   propertyId?: string;
   defaultValues: PropertyFormValues;
   canPublish: boolean;
   uploadsEnabled: boolean;
+  variant?: "agency" | "broker" | "seller";
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -98,8 +107,16 @@ export function PropertyForm({
       const payload = { ...values, videoUrl: values.videoUrl.trim() || undefined };
       const result =
         mode === "create"
-          ? await createPropertyAction(payload)
-          : await updatePropertyAction(propertyId!, payload);
+          ? variant === "seller"
+            ? await createSellerPropertyAction(payload)
+            : variant === "broker"
+              ? await createBrokerPropertyAction(payload)
+              : await createPropertyAction(payload)
+          : variant === "seller"
+            ? await updateSellerPropertyAction(propertyId!, payload)
+            : variant === "broker"
+              ? await updateBrokerPropertyAction(propertyId!, payload)
+              : await updatePropertyAction(propertyId!, payload);
 
       if (result?.error) {
         toast.error(result.error);

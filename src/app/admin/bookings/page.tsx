@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ViewingStatusBadge } from "@/components/viewings/viewing-meta";
 import {
   Table,
   TableBody,
@@ -54,12 +54,7 @@ async function BookingMonitor() {
               })}
             </TableCell>
             <TableCell>
-              <Badge
-                variant={booking.status === "confirmed" ? "default" : "secondary"}
-                className="capitalize"
-              >
-                {booking.status}
-              </Badge>
+              <ViewingStatusBadge status={booking.status} />
             </TableCell>
           </TableRow>
         ))}

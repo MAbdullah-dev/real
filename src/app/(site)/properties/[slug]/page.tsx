@@ -1,5 +1,6 @@
 import { LayoutWide } from "@/components/layout/shell";
 import { PropertyGallery } from "@/components/property/property-gallery";
+import { PropertyMap } from "@/components/property/property-map";
 import { MortgageCalculator } from "@/components/property/mortgage-calculator";
 import { PropertyStickyPanel } from "@/components/property/property-sticky-panel";
 import { PropertyCard } from "@/components/property/property-card";
@@ -13,17 +14,7 @@ import {
   listPublishedPropertyParams,
 } from "@/server/properties";
 import { formatPrice } from "@/lib/utils";
-import {
-  Bath,
-  Bed,
-  Box,
-  MapPin,
-  Maximize2,
-  ScanLine,
-  Sofa,
-  Star,
-  Video,
-} from "lucide-react";
+import { Bath, Bed, MapPin, Maximize2, Sofa, Star } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -104,10 +95,12 @@ export default async function PropertyDetailPage({ params }: Props) {
             {property.address}, {property.city}, {property.country}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
-              <Star className="h-4 w-4 text-accent" />
-              {property.rating.toFixed(2)} ({property.reviewCount} reviews)
-            </span>
+            {property.reviewCount > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
+                <Star className="h-4 w-4 text-accent" aria-hidden />
+                {property.rating.toFixed(2)} ({property.reviewCount} reviews)
+              </span>
+            ) : null}
             <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
               <Bed className="h-4 w-4" />
               {property.bedrooms} beds
@@ -131,123 +124,123 @@ export default async function PropertyDetailPage({ params }: Props) {
               ? `${formatPrice(property.price)}/mo`
               : formatPrice(property.price)}
           </p>
-          <Link href={`/booking/${property.id}`} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">
-            Open structured booking flow →
+          <Link
+            href={`/booking/${property.id}`}
+            className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
+          >
+            Request a viewing →
           </Link>
         </div>
       </div>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_400px] xl:gap-14 lg:items-start">
         <div className="min-w-0 space-y-10">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Card className="rounded-3xl border-dashed">
-              <CardContent className="flex flex-col gap-2 p-6">
-                <Video className="h-6 w-6 text-primary" />
-                <p className="font-medium">Video tour</p>
-                <p className="text-xs text-muted-foreground">Cinematic walkthrough — production-ready placeholder.</p>
-                <p className="mt-auto text-sm font-medium text-primary">Preview on request</p>
+          {property.videoUrl ? (
+            <Card className="overflow-hidden rounded-3xl">
+              <CardContent className="p-0">
+                <div className="aspect-video w-full">
+                  <iframe
+                    src={property.videoUrl}
+                    title={`Video tour of ${property.title}`}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
               </CardContent>
             </Card>
-            <Card className="rounded-3xl border-dashed">
-              <CardContent className="flex flex-col gap-2 p-6">
-                <ScanLine className="h-6 w-6 text-primary" />
-                <p className="font-medium">360° preview</p>
-                <p className="text-xs text-muted-foreground">Spatial mesh viewer — upgrade path to WebXR.</p>
-                <p className="mt-auto text-sm font-medium text-primary">Spatial viewer · beta</p>
-              </CardContent>
-            </Card>
-            <Card className="rounded-3xl border-dashed">
-              <CardContent className="flex flex-col gap-2 p-6">
-                <Box className="h-6 w-6 text-primary" />
-                <p className="font-medium">AR staging</p>
-                <p className="text-xs text-muted-foreground">Place finishes in-room — experimental SDK slot.</p>
-                <p className="mt-auto text-sm font-medium text-primary">SDK integration slot</p>
-              </CardContent>
-            </Card>
-          </div>
+          ) : null}
 
           <Tabs defaultValue="overview">
             <TabsList className="w-full justify-start overflow-x-auto">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="amenities">Amenities</TabsTrigger>
-              <TabsTrigger value="floor">Floor plans</TabsTrigger>
-              <TabsTrigger value="reviews">Reviews</TabsTrigger>
+              <TabsTrigger value="location">Location</TabsTrigger>
             </TabsList>
-            <TabsContent value="overview" className="mt-6 space-y-4">
-              <p className="leading-relaxed text-muted-foreground">{property.description}</p>
-              <div className="rounded-3xl border border-border bg-muted/30 p-6">
-                <p className="text-sm font-semibold">Map integration</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Embed Mapbox / Google Maps with `{property.city}` centroid — placeholder for API keys.
-                </p>
-                <div className="mt-4 aspect-[21/9] rounded-2xl bg-gradient-to-br from-primary/15 to-accent/10" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold">Nearby</p>
-                <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-                  <li>Waterfront promenade · 6 min walk</li>
-                  <li>Private members club · 12 min drive</li>
-                  <li>International school hub · 9 min drive</li>
-                  <li>Signature dining row · 4 min walk</li>
-                </ul>
-              </div>
+            <TabsContent value="overview" className="mt-6 space-y-6">
+              <p className="whitespace-pre-line leading-relaxed text-muted-foreground">
+                {property.description}
+              </p>
+              <dl className="grid gap-3 sm:grid-cols-2">
+                {[
+                  { label: "Purpose", value: property.purpose === "rent" ? "For rent" : "For sale" },
+                  { label: "Bedrooms", value: String(property.bedrooms) },
+                  { label: "Bathrooms", value: String(property.bathrooms) },
+                  { label: "Built-up area", value: `${property.areaSqm} m²` },
+                  { label: "Furnishing", value: property.furnished ? "Furnished" : "Unfurnished" },
+                  {
+                    label: property.purpose === "rent" ? "Monthly rent" : "Price per m²",
+                    value:
+                      property.purpose === "rent"
+                        ? `${formatPrice(property.price)}/mo`
+                        : formatPrice(Math.round(property.price / Math.max(1, property.areaSqm))),
+                  },
+                ].map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-sm"
+                  >
+                    <dt className="text-muted-foreground">{row.label}</dt>
+                    <dd className="font-medium">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
             </TabsContent>
             <TabsContent value="amenities" className="mt-6">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {property.amenities.map((a) => {
-                  const Icon = amenityIcons[a.toLowerCase()] ?? amenityIcons.default;
-                  return (
-                    <div
-                      key={a}
-                      className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3"
-                    >
-                      <Icon className="h-5 w-5 text-primary" />
-                      <span className="text-sm">{a}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              {property.amenities.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  The listing contact has not added an amenity list — ask them in the enquiry
+                  form.
+                </p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {property.amenities.map((a) => {
+                    const Icon = amenityIcons[a.toLowerCase()] ?? amenityIcons.default;
+                    return (
+                      <div
+                        key={a}
+                        className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3"
+                      >
+                        <Icon className="h-5 w-5 text-primary" aria-hidden />
+                        <span className="text-sm">{a}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </TabsContent>
-            <TabsContent value="floor" className="mt-6">
-              <Card className="rounded-3xl">
-                <CardContent className="p-8">
-                  <p className="text-sm text-muted-foreground">
-                    Vector floor plans with unit overlays — upload PDF or CAD in the agent console.
-                  </p>
-                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                    <div className="aspect-[4/3] rounded-2xl bg-muted" />
-                    <div className="aspect-[4/3] rounded-2xl bg-muted" />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="reviews" className="mt-6 space-y-4">
-              {[1, 2].map((i) => (
-                <Card key={i} className="rounded-2xl">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Star className="h-4 w-4 text-accent" />5.0
-                    </div>
-                    <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-                      “Impeccable communication, the visit felt orchestrated down to parking and elevator timing.”
-                    </p>
-                    <p className="mt-4 text-xs text-muted-foreground">Verified buyer · {property.city}</p>
-                  </CardContent>
-                </Card>
-              ))}
+            <TabsContent value="location" className="mt-6 space-y-4">
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+                {property.address}, {property.city}, {property.country}
+              </p>
+              {property.coordinates ? (
+                <PropertyMap
+                  lat={property.coordinates.lat}
+                  lng={property.coordinates.lng}
+                  title={property.title}
+                />
+              ) : (
+                <p className="rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+                  Exact coordinates are not published for this listing. The listing contact
+                  shares the meeting point when a viewing is confirmed.
+                </p>
+              )}
             </TabsContent>
           </Tabs>
 
           {property.purpose === "sale" ? <MortgageCalculator homePrice={property.price} /> : null}
 
-          <div>
-            <h2 className="text-xl font-semibold">Similar properties</h2>
-            <div className="mt-6 grid gap-8 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
-              {similar.map((p, i) => (
-                <PropertyCard key={p.id} property={p} index={i} layout="showcase" />
-              ))}
+          {similar.length > 0 ? (
+            <div>
+              <h2 className="text-xl font-semibold">Similar properties</h2>
+              <div className="mt-6 grid gap-8 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
+                {similar.map((p, i) => (
+                  <PropertyCard key={p.id} property={p} index={i} layout="showcase" />
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
         <PropertyStickyPanel property={property} />

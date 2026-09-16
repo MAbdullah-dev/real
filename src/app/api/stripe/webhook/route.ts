@@ -21,12 +21,12 @@ function periodEnd(subscription: Stripe.Subscription) {
 }
 
 async function syncSubscription(subscription: Stripe.Subscription) {
-  const userId = subscription.metadata?.userId;
+  const agencyId = subscription.metadata?.agencyId;
   const planId = subscription.metadata?.planId;
-  if (!userId || !planId) return;
+  if (!agencyId || !planId) return;
 
   const data = {
-    userId,
+    agencyId,
     planId,
     status: STATUS_MAP[subscription.status] ?? "incomplete",
     stripeCustomerId:

@@ -28,6 +28,7 @@ async function Notifications() {
         id: item.id,
         title: item.title,
         body: item.body,
+        href: item.href,
         read: item.readAt != null,
         createdAt: item.createdAt.toISOString(),
       }))}

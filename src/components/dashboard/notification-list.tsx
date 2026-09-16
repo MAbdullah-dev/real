@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -15,6 +16,7 @@ export type NotificationItem = {
   id: string;
   title: string;
   body: string;
+  href: string | null;
   read: boolean;
   createdAt: string;
 };
@@ -72,22 +74,37 @@ export function NotificationList({ notifications }: { notifications: Notificatio
                 </span>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
-              {!item.read ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="mt-3 rounded-full px-2"
-                  disabled={pending}
-                  onClick={() =>
-                    startTransition(async () => {
-                      await markNotificationReadAction(item.id);
-                    })
-                  }
-                >
-                  Mark read
-                </Button>
-              ) : null}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {item.href ? (
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    onClick={() => {
+                      if (!item.read) void markNotificationReadAction(item.id);
+                    }}
+                  >
+                    <Link href={item.href}>Open</Link>
+                  </Button>
+                ) : null}
+                {!item.read ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-full px-2"
+                    disabled={pending}
+                    onClick={() =>
+                      startTransition(async () => {
+                        await markNotificationReadAction(item.id);
+                      })
+                    }
+                  >
+                    Mark read
+                  </Button>
+                ) : null}
+              </div>
             </CardContent>
           </Card>
         ))}

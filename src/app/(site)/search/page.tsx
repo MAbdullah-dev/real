@@ -1,11 +1,16 @@
+import { SearchX } from "lucide-react";
 import { Suspense } from "react";
 
 import { LayoutWide } from "@/components/layout/shell";
 import { PropertyCard } from "@/components/property/property-card";
 import { SearchExplorePanel } from "@/components/search/property-filters";
+import { SortSelect } from "@/components/search/sort-select";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PRICE_CEILING, parseSearchParams } from "@/server/property-filters";
 import { filterProperties } from "@/server/properties";
-import type { PropertyPurpose } from "@/types";
+
+export const metadata = { title: "Search properties" };
 
 export default function SearchPage({
   searchParams,
@@ -17,8 +22,7 @@ export default function SearchPage({
       <div className="max-w-2xl">
         <h1 className="text-3xl font-semibold tracking-tight">Search properties</h1>
         <p className="mt-2 text-muted-foreground">
-          Use the discovery panel below — keyword search and refinements live together for a quicker brief-to-results
-          loop.
+          Search by place or keyword, then narrow by deal type, size, and budget.
         </p>
       </div>
 
@@ -34,52 +38,53 @@ async function SearchResults({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const sp = await searchParams;
-  const q = typeof sp.q === "string" ? sp.q : "";
-  const purpose = (typeof sp.purpose === "string" ? sp.purpose : "all") as PropertyPurpose | "all";
-  const type = typeof sp.type === "string" ? sp.type : "all";
-  const bedrooms = typeof sp.bedrooms === "string" ? Number(sp.bedrooms) : 0;
-  const bathrooms = typeof sp.bathrooms === "string" ? Number(sp.bathrooms) : 0;
-  const furnished = (typeof sp.furnished === "string" ? sp.furnished : "all") as "all" | "yes" | "no";
-  const minPrice = typeof sp.minPrice === "string" ? Number(sp.minPrice) : undefined;
-  const maxPrice = typeof sp.maxPrice === "string" ? Number(sp.maxPrice) : undefined;
+  const params = parseSearchParams(await searchParams);
 
   const results = await filterProperties({
-    q,
-    purpose,
-    type,
-    bedrooms: Number.isFinite(bedrooms) ? bedrooms : 0,
-    bathrooms: Number.isFinite(bathrooms) ? bathrooms : 0,
-    furnished,
-    minPrice,
-    maxPrice,
+    ...params,
+    // A full-range slider is not a filter, so don't narrow on it.
+    minPrice: params.minPrice > 0 ? params.minPrice : undefined,
+    maxPrice: params.maxPrice < PRICE_CEILING ? params.maxPrice : undefined,
   });
 
   return (
     <>
       <div className="mt-8 lg:mt-10">
-        <SearchExplorePanel defaultQuery={q} />
+        <SearchExplorePanel defaultQuery={params.q} />
       </div>
 
       <div className="mt-10 lg:mt-12">
-        <div className="flex items-end justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground tabular-nums">{results.length}</span> curated{" "}
-            {results.length === 1 ? "match" : "matches"}
+            <span className="font-semibold tabular-nums text-foreground">
+              {results.length}
+            </span>{" "}
+            {results.length === 1 ? "property" : "properties"}
+            {params.q ? (
+              <>
+                {" "}
+                for <span className="font-medium text-foreground">{params.q}</span>
+              </>
+            ) : null}
           </p>
+          {results.length > 1 ? <SortSelect value={params.sort} /> : null}
         </div>
-        <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          {results.map((p, i) => (
-            <PropertyCard key={p.id} property={p} index={i} layout="showcase" />
-          ))}
-        </div>
+
         {results.length === 0 ? (
-          <div className="mt-10 rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-12 text-center">
-            <p className="text-sm text-muted-foreground">
-              No homes match yet — loosen the price range or switch purpose to see more inventory.
-            </p>
+          <EmptyState
+            className="mt-8"
+            icon={SearchX}
+            title="No properties match those filters"
+            description="Try widening the price range, clearing the property type, or searching a nearby city."
+            action={{ label: "Clear all filters", href: "/search" }}
+          />
+        ) : (
+          <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            {results.map((p, i) => (
+              <PropertyCard key={p.id} property={p} index={i} layout="showcase" />
+            ))}
           </div>
-        ) : null}
+        )}
       </div>
     </>
   );

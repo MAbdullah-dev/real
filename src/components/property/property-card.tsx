@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn, formatPrice } from "@/lib/utils";
 import type { Property } from "@/types";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import { useWishlistStore } from "@/store/wishlist-store";
 import { toggleWishlist } from "@/server/actions/wishlist";
 
@@ -96,7 +97,19 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
               onClick={(e) => {
                 e.preventDefault();
                 toggle(property.id);
-                if (session) void toggleWishlist(property.id);
+                if (!session) {
+                  toast.success(saved ? "Removed" : "Saved on this device", {
+                    description: "Sign in to keep your list across devices.",
+                  });
+                  return;
+                }
+                void toggleWishlist(property.id).then((result) => {
+                  if (!result.ok) {
+                    // Keep the heart honest if the server rejected the change.
+                    toggle(property.id);
+                    toast.error("Could not update your saved list.");
+                  }
+                });
               }}
               aria-pressed={saved}
               aria-label={saved ? "Remove from wishlist" : "Save property"}
@@ -143,11 +156,13 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
               >
                 {priceLabel}
               </p>
-              <p className="mt-0.5 flex items-center justify-end gap-1 text-xs text-muted-foreground">
-                <Star className="h-3.5 w-3.5 fill-accent text-accent" aria-hidden />
-                <span className="tabular-nums">{property.rating.toFixed(2)}</span>
-                <span className="text-muted-foreground/80">({property.reviewCount})</span>
-              </p>
+              {property.reviewCount > 0 ? (
+                <p className="mt-0.5 flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                  <Star className="h-3.5 w-3.5 fill-accent text-accent" aria-hidden />
+                  <span className="tabular-nums">{property.rating.toFixed(2)}</span>
+                  <span className="text-muted-foreground/80">({property.reviewCount})</span>
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -177,7 +192,7 @@ export function PropertyCard({ property, index = 0, layout = "default" }: Proper
               size={isShowcase ? "default" : "sm"}
               className={cn("flex-1", isShowcase ? "h-10 sm:h-11 px-4 sm:px-5 sm:py-3" : "")}
             >
-              <Link href={`/booking/${property.id}`}>Reserve visit</Link>
+              <Link href={`/booking/${property.id}`}>Request viewing</Link>
             </Button>
             <Button
               asChild

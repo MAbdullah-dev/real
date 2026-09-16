@@ -5,19 +5,27 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { Property } from "@/types";
 import { propertiesByCategory, toProperty, type PropertyWithAgent } from "@/server/mappers";
-import type { PropertyFilterParams } from "@/server/property-filters";
+import type { PropertyFilterParams, PropertySort } from "@/server/property-filters";
 import type { PROPERTY_CATEGORIES } from "@/server/property-input";
 
 type PropertyFormCategories = (typeof PROPERTY_CATEGORIES)[number][];
 
-const propertyInclude = {
+export const propertyInclude = {
   images: true,
   agent: {
     select: {
       id: true,
       name: true,
       image: true,
-      agentProfile: { select: { agency: true, phone: true, verified: true } },
+      brokerProfile: { select: { phone: true, whatsapp: true, title: true, status: true } },
+      sellerProfile: { select: { phone: true, status: true } },
+    },
+  },
+  agency: {
+    select: {
+      name: true,
+      phone: true,
+      status: true,
     },
   },
 } satisfies Prisma.PropertyInclude;
@@ -116,14 +124,59 @@ export async function filterProperties(params: PropertyFilterParams) {
   const rows = await prisma.property.findMany({
     where,
     include: propertyInclude,
-    orderBy: { rating: "desc" },
+    orderBy: SORT_ORDER[params.sort ?? "recommended"],
   });
   return mapMany(rows);
 }
 
-export async function listAgentProperties(agentId?: string) {
+const SORT_ORDER: Record<PropertySort, Prisma.PropertyOrderByWithRelationInput[]> = {
+  recommended: [{ rating: "desc" }, { createdAt: "desc" }],
+  newest: [{ createdAt: "desc" }],
+  "price-asc": [{ price: "asc" }],
+  "price-desc": [{ price: "desc" }],
+  "area-desc": [{ areaSqm: "desc" }],
+};
+
+/** Console listings — prefer `agencyId` so plan usage and inventory stay aligned. */
+export async function listAgentProperties(opts?: {
+  agencyId?: string;
+  agentId?: string;
+  sellerId?: string;
+}) {
+  const where = opts?.agencyId
+    ? { agencyId: opts.agencyId }
+    : opts?.sellerId
+      ? { sellerId: opts.sellerId }
+      : opts?.agentId
+        ? { agentId: opts.agentId }
+        : undefined;
+
   const rows = await prisma.property.findMany({
-    where: agentId ? { agentId } : undefined,
+    where,
+    include: {
+      ...propertyInclude,
+      _count: { select: { bookings: true, leads: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+  return rows.map((row) => ({
+    property: toProperty(row),
+    status: row.status,
+    agentName: row.agent.name ?? "Unassigned",
+    bookings: row._count.bookings,
+    leads: row._count.leads,
+    updatedAt: row.updatedAt,
+  }));
+}
+
+export async function listSellerProperties(sellerId: string) {
+  return listAgentProperties({ sellerId });
+}
+
+/** Independent broker inventory (no agency, no seller ownership). */
+export async function listBrokerProperties(brokerUserId: string) {
+  const rows = await prisma.property.findMany({
+    where: { agentId: brokerUserId, agencyId: null, sellerId: null },
     include: {
       ...propertyInclude,
       _count: { select: { bookings: true, leads: true } },
@@ -151,6 +204,8 @@ export async function getPropertyForEdit(id: string) {
   return {
     id: row.id,
     agentId: row.agentId,
+    agencyId: row.agencyId,
+    sellerId: row.sellerId,
     slug: row.slug,
     status: row.status,
     values: {

@@ -9,7 +9,9 @@ datasource db {
 
 enum Role {
   USER
-  AGENT
+  SELLER
+  BROKER
+  AGENCY
   ADMIN
 }
 
@@ -27,9 +29,23 @@ enum PropertyStatus {
 
 enum BookingStatus {
   pending
+  proposed
   confirmed
   declined
+  cancelled
   completed
+  no_show
+}
+
+enum VisitMode {
+  in_person
+  video
+}
+
+enum LeadStatus {
+  open
+  replied
+  closed
 }
 
 enum SubscriptionStatus {
@@ -38,6 +54,41 @@ enum SubscriptionStatus {
   active
   past_due
   canceled
+}
+
+enum AgentStatus {
+  onboarding
+  pending_review
+  active
+  rejected
+  suspended
+}
+
+enum AgencyType {
+  individual
+  agency
+  developer
+}
+
+enum AgencyRole {
+  owner
+  manager
+  negotiator
+}
+
+enum CredentialType {
+  national_id
+  tax_number
+  business_registration
+  real_estate_license
+  office_proof
+  other
+}
+
+enum CredentialStatus {
+  pending
+  approved
+  rejected
 }
 
 model User {
@@ -49,18 +100,67 @@ model User {
   passwordHash  String?
   role          Role      @default(USER)
 
-  accounts      Account[]
-  sessions      Session[]
-  agentProfile  AgentProfile?
-  properties    Property[]      @relation("AgentProperties")
-  bookings      Booking[]
-  leads         Lead[]
-  wishlist      WishlistItem[]
-  notifications Notification[]
-  subscriptions Subscription[]
+  accounts       Account[]
+  sessions       Session[]
+  membership     AgencyMember?
+  sellerProfile  SellerProfile?
+  brokerProfile  BrokerProfile?
+  properties     Property[]      @relation("ManagedProperties")
+  ownedProperties Property[]     @relation("OwnedProperties")
+  bookings       Booking[]
+  leads          Lead[]
+  leadMessages   LeadMessage[]
+  wishlist       WishlistItem[]
+  notifications  Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/** Independent broker — own pipeline, no agency shell. */
+model BrokerProfile {
+  id             String      @id @default(cuid())
+  userId         String      @unique
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone          String?
+  country        String?
+  city           String?
+  bio            String?     @db.Text
+  title          String?
+  languages      String[]
+  specialties    String[]
+  whatsapp       String?
+  status         AgentStatus @default(onboarding)
+  statusNote     String?     @db.Text
+  onboardingStep Int         @default(0)
+  submittedAt    DateTime?
+  reviewedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+/** Owner who lists their own property (FSBO). Separate from broker/agency. */
+model SellerProfile {
+  id             String      @id @default(cuid())
+  userId         String      @unique
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone          String?
+  country        String?
+  city           String?
+  bio            String?     @db.Text
+  status         AgentStatus @default(onboarding)
+  statusNote     String?     @db.Text
+  onboardingStep Int         @default(0)
+  submittedAt    DateTime?
+  reviewedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
 }
 
 model Account {
@@ -98,17 +198,70 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model AgentProfile {
-  id       String  @id @default(cuid())
-  userId   String  @unique
-  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agency   String?
-  phone    String?
-  bio      String? @db.Text
-  verified Boolean @default(false)
+model Agency {
+  id                  String      @id @default(cuid())
+  name                String?
+  type                AgencyType  @default(individual)
+  phone               String?
+  bio                 String?     @db.Text
+  country             String?
+  city                String?
+  markets             String[]
+  status              AgentStatus @default(onboarding)
+  statusNote          String?     @db.Text
+  onboardingStep      Int         @default(0)
+  standardsAcceptedAt DateTime?
+  submittedAt         DateTime?
+  reviewedAt          DateTime?
+  reviewedById        String?
+
+  members       AgencyMember[]
+  credentials   AgentCredential[]
+  properties    Property[]
+  subscriptions Subscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model AgencyMember {
+  id          String     @id @default(cuid())
+  agencyId    String
+  agency      Agency     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  userId      String     @unique
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        AgencyRole @default(owner)
+  title       String?
+  languages   String[]
+  specialties String[]
+  whatsapp    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+}
+
+model AgentCredential {
+  id           String           @id @default(cuid())
+  agencyId     String
+  agency       Agency           @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  type         CredentialType
+  value        String?
+  authority    String?
+  jurisdiction String?
+  expiresAt    DateTime?
+  fileUrl      String?
+  status       CredentialStatus @default(pending)
+  reviewNote   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@unique([agencyId, type])
 }
 
 model Property {
@@ -135,14 +288,23 @@ model Property {
   lng         Float?
   status      PropertyStatus  @default(draft)
 
-  agentId String
-  agent   User   @relation("AgentProperties", fields: [agentId], references: [id])
+  /** Owner of the asset (seller). Null when an agency lists on behalf of an undisclosed owner. */
+  sellerId String?
+  seller   User?   @relation("OwnedProperties", fields: [sellerId], references: [id])
 
-  images            PropertyImage[]
-  bookings          Booking[]
-  leads             Lead[]
-  wishlist          WishlistItem[]
-  dailyStats        PropertyViewDaily[]
+  /** Representing agency. Null for pure seller (FSBO) listings. */
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+
+  /** Listing manager: broker user or the seller themselves. */
+  agentId String
+  agent   User   @relation("ManagedProperties", fields: [agentId], references: [id])
+
+  images     PropertyImage[]
+  bookings   Booking[]
+  leads      Lead[]
+  wishlist   WishlistItem[]
+  dailyStats PropertyViewDaily[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -150,6 +312,8 @@ model Property {
   @@index([status])
   @@index([city])
   @@index([agentId])
+  @@index([agencyId])
+  @@index([sellerId])
 }
 
 model PropertyImage {
@@ -162,18 +326,29 @@ model PropertyImage {
 }
 
 model Booking {
-  id              String        @id @default(cuid())
-  propertyId      String
-  property        Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  userId          String?
-  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  name            String
-  email           String
-  phone           String
-  requestedDates  String
-  notes           String        @db.Text
-  visitDate       DateTime?
-  status          BookingStatus @default(pending)
+  id         String        @id @default(cuid())
+  propertyId String
+  property   Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name       String
+  email      String
+  phone      String
+  notes      String        @db.Text
+  status     BookingStatus @default(pending)
+  statusNote String?       @db.Text
+
+  /** Up to three buyer-preferred start times, stored in UTC. */
+  slots     DateTime[]
+  /** IANA zone the buyer picked the slots in, so both sides read the same wall clock. */
+  timezone  String    @default("UTC")
+  mode      VisitMode @default(in_person)
+  partySize Int       @default(1)
+
+  /** Agreed start time once confirmed, or the host's counter-proposal while `proposed`. */
+  visitDate DateTime?
+
+  events BookingEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -181,22 +356,57 @@ model Booking {
   @@index([propertyId])
   @@index([userId])
   @@index([status])
+  @@index([email])
+}
+
+/** Append-only audit of every viewing state change, shown to both sides as a timeline. */
+model BookingEvent {
+  id        String        @id @default(cuid())
+  bookingId String
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  status    BookingStatus
+  actorRole String
+  actorId   String?
+  note      String?       @db.Text
+  createdAt DateTime      @default(now())
+
+  @@index([bookingId])
 }
 
 model Lead {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   propertyId String
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   userId     String?
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
   name       String
   email      String
   phone      String?
-  message    String   @db.Text
+  message    String     @db.Text
+  status     LeadStatus @default(open)
+
+  messages     LeadMessage[]
+  lastMessageAt DateTime    @default(now())
 
   createdAt DateTime @default(now())
 
   @@index([propertyId])
+  @@index([userId])
+  @@index([email])
+}
+
+/** Replies on an enquiry thread. The opening `Lead.message` is turn zero. */
+model LeadMessage {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  fromBuyer Boolean
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
 }
 
 model ContactMessage {
@@ -225,6 +435,7 @@ model Notification {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   body      String
+  href      String?
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
@@ -245,8 +456,8 @@ model Plan {
 
 model Subscription {
   id                   String             @id @default(cuid())
-  userId               String
-  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agencyId             String
+  agency               Agency             @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   planId               String
   plan                 Plan               @relation(fields: [planId], references: [id])
   status               SubscriptionStatus @default(incomplete)
@@ -257,7 +468,7 @@ model Subscription {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([userId])
+  @@index([agencyId])
 }
 
 model BlogPost {

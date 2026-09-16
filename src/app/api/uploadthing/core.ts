@@ -12,8 +12,8 @@ export const uploadRouter = {
     .middleware(async () => {
       const session = await auth();
       const role = session?.user?.role;
-      if (!session?.user?.id || (role !== "AGENT" && role !== "ADMIN")) {
-        throw new UploadThingError("Only agents can upload listing photos.");
+      if (!session?.user?.id || (role !== "BROKER" && role !== "AGENCY" && role !== "SELLER" && role !== "ADMIN")) {
+        throw new UploadThingError("Only sellers, brokers, and agencies can upload listing photos.");
       }
       return { userId: session.user.id };
     })
@@ -34,8 +34,43 @@ export const uploadRouter = {
     .onUploadComplete(async ({ metadata, file }) => {
       return { uploadedBy: metadata.userId, url: file.ufsUrl };
     }),
+  credentialDoc: f({
+    image: { maxFileSize: "4MB", maxFileCount: 1 },
+    pdf: { maxFileSize: "8MB", maxFileCount: 1 },
+  })
+    .middleware(async () => {
+      const session = await auth();
+      const role = session?.user?.role;
+      if (!session?.user?.id || (role !== "AGENCY" && role !== "ADMIN")) {
+        throw new UploadThingError("Only agencies can upload credentials.");
+      }
+      return { userId: session.user.id };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      return { uploadedBy: metadata.userId, url: file.ufsUrl };
+    }),
 } satisfies FileRouter;
 
 export type UploadRouter = typeof uploadRouter;
 
-export const uploadsConfigured = Boolean(process.env.UPLOADTHING_TOKEN);
+/** True only when the env value looks like a real UploadThing v7 token (base64 JSON). */
+export function isUploadThingToken(value: string | undefined): boolean {
+  if (!value?.trim()) return false;
+  try {
+    const parsed = JSON.parse(Buffer.from(value.trim(), "base64").toString("utf8")) as {
+      apiKey?: unknown;
+      appId?: unknown;
+      regions?: unknown;
+    };
+    return (
+      typeof parsed.apiKey === "string" &&
+      typeof parsed.appId === "string" &&
+      Array.isArray(parsed.regions) &&
+      parsed.regions.every((r) => typeof r === "string")
+    );
+  } catch {
+    return false;
+  }
+}
+
+export const uploadsConfigured = isUploadThingToken(process.env.UPLOADTHING_TOKEN);

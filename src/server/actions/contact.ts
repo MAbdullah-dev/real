@@ -3,12 +3,13 @@
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { rateLimit, retryMessage } from "@/lib/rate-limit";
 
 const contactSchema = z.object({
-  name: z.string().min(2, "Enter your name."),
-  email: z.string().email("Enter a valid email."),
-  company: z.string().optional(),
-  message: z.string().min(10, "Tell us a little more."),
+  name: z.string().trim().min(2, "Enter your name.").max(80),
+  email: z.string().trim().email("Enter a valid email.").max(160),
+  company: z.string().trim().max(120).optional(),
+  message: z.string().trim().min(10, "Tell us a little more.").max(2000),
 });
 
 export type ContactActionResult = { ok?: true; error?: string };
@@ -20,6 +21,9 @@ export async function sendContactMessageAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
   }
+
+  const limit = rateLimit(`contact:${parsed.data.email.toLowerCase()}`, 3, 3_600_000);
+  if (!limit.ok) return { error: retryMessage(limit.retryAfterMs) };
 
   await prisma.contactMessage.create({
     data: {
