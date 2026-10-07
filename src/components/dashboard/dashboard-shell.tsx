@@ -21,7 +21,7 @@ function matchesNavItem(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Only the most specific matching href is active (avoids `/agency` lighting up on every page). */
+/** Only the most specific matching href is active (avoids `/agent` lighting up on every page). */
 function isNavActive(pathname: string, href: string, nav: { href: string }[]) {
   const matches = nav.filter((item) => matchesNavItem(pathname, item.href));
   if (matches.length === 0) return false;

@@ -69,8 +69,8 @@ export function BuyerViewingCard({ viewing }: { viewing: ViewingRow }) {
             <BuyerViewingActions
               id={viewing.id}
               status={viewing.status}
+              proposedBy={viewing.proposedBy}
               availableSlots={viewing.property.availableSlots.map((slot) => slot.toISOString())}
-              sellerOwned={Boolean(viewing.property.sellerId && !viewing.property.agencyId)}
             />
             <Link
               href={`/dashboard/viewings/${viewing.id}`}

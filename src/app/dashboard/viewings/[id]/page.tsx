@@ -105,8 +105,8 @@ export default async function BuyerViewingDetailPage({
             <BuyerViewingActions
               id={viewing.id}
               status={viewing.status}
+              proposedBy={viewing.proposedBy}
               availableSlots={viewing.property.availableSlots.map((slot) => slot.toISOString())}
-              sellerOwned={Boolean(viewing.property.sellerId && !viewing.property.agencyId)}
             />
           </div>
         </CardContent>

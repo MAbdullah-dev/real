@@ -40,7 +40,7 @@ async function SubscriptionsTable() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Agency</TableHead>
+            <TableHead>Agent</TableHead>
             <TableHead>Plan</TableHead>
             <TableHead className="text-right">Price</TableHead>
             <TableHead className="text-right">Listings</TableHead>
@@ -52,11 +52,8 @@ async function SubscriptionsTable() {
           {subscriptions.map((sub) => (
             <TableRow key={sub.id}>
               <TableCell className="font-medium">
-                {sub.agencyName}
-                <p className="text-xs text-muted-foreground">
-                  {sub.userName}
-                  {sub.userEmail ? ` · ${sub.userEmail}` : ""}
-                </p>
+                {sub.userName}
+                <p className="text-xs text-muted-foreground">{sub.userEmail}</p>
               </TableCell>
               <TableCell>{sub.planName}</TableCell>
               <TableCell className="text-right tabular-nums">${sub.priceMonthly}</TableCell>

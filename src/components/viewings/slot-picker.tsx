@@ -24,12 +24,14 @@ export function SlotPicker({
   value,
   onChange,
   disabled,
-  max = MAX_SLOTS,
+  maxSlots = MAX_SLOTS,
+  legend,
 }: {
   value: string[];
   onChange: (next: string[]) => void;
   disabled?: boolean;
-  max?: number;
+  maxSlots?: number;
+  legend?: string;
 }) {
   // The clock can't be read during render, and a server-rendered bound would
   // disagree with the browser's zone anyway, so nudge the native picker from a
@@ -51,7 +53,9 @@ export function SlotPicker({
         <div key={index} className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <Label htmlFor={`slot-${index}`} className="text-xs text-muted-foreground">
-              {ORDINALS[index] ?? `Time ${index + 1}`}
+              {legend
+                ? `${legend} ${index + 1}`
+                : (ORDINALS[index] ?? `Option ${index + 1}`)}
               {index === 0 ? " (required)" : ""}
             </Label>
             {index > 0 ? (
@@ -78,7 +82,7 @@ export function SlotPicker({
         </div>
       ))}
 
-      {value.length < max ? (
+      {value.length < maxSlots ? (
         <Button
           type="button"
           variant="outline"
@@ -93,8 +97,7 @@ export function SlotPicker({
       ) : null}
 
       <p className="text-xs text-muted-foreground">
-        Offering more than one window gets you confirmed faster. Times are in your local
-        zone, at least {MIN_LEAD_HOURS} hours from now.
+        Times are in your local zone, at least {MIN_LEAD_HOURS} hours from now.
       </p>
     </div>
   );

@@ -29,6 +29,8 @@ import {
   updatePropertyAction,
   updateSellerPropertyAction,
 } from "@/server/actions/properties";
+import { SlotPicker } from "@/components/viewings/slot-picker";
+import { MAX_AVAILABILITY } from "@/lib/viewings";
 import { PROPERTY_CATEGORIES } from "@/server/property-input";
 
 const formSchema = z.object({
@@ -48,6 +50,7 @@ const formSchema = z.object({
   amenities: z.string(),
   badges: z.string(),
   images: z.array(z.string()).min(1, "Add at least one photo."),
+  availableSlots: z.array(z.string()),
   status: z.enum(["draft", "pending_review", "published"]),
 });
 
@@ -70,6 +73,7 @@ export const emptyPropertyForm: PropertyFormValues = {
   amenities: "",
   badges: "",
   images: [],
+  availableSlots: [""],
   status: "draft",
 };
 
@@ -278,6 +282,32 @@ export function PropertyForm({
             <Input placeholder="New, Exclusive, Luxury" {...form.register("badges")} />
             <p className="text-xs text-muted-foreground">Do not enter Verified — that comes from account approval.</p>
           </Field>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-3xl">
+        <CardHeader>
+          <CardTitle>Viewing availability</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {variant === "seller"
+              ? "Buyers can only request a viewing on these times. Required before you submit for review."
+              : "Optional. If you post times, buyers pick from this list instead of choosing freely."}
+          </p>
+          <Controller
+            control={form.control}
+            name="availableSlots"
+            render={({ field }) => (
+              <SlotPicker
+                value={field.value.length ? field.value : [""]}
+                onChange={field.onChange}
+                disabled={pending}
+                maxSlots={MAX_AVAILABILITY}
+                legend="Available window"
+              />
+            )}
+          />
         </CardContent>
       </Card>
 

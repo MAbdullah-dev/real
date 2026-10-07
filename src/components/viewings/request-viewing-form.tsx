@@ -5,7 +5,7 @@ import Link from "next/link";
 import * as React from "react";
 import { toast } from "sonner";
 
-import { AvailableSlotPicker } from "@/components/viewings/available-slot-picker";
+import { AvailabilityPicker } from "@/components/viewings/availability-picker";
 import { SlotPicker, slotsToIso } from "@/components/viewings/slot-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,30 +27,33 @@ export function RequestViewingForm({
   propertyId,
   propertySlug,
   contactKind,
-  availableSlots = [],
+  availableSlots,
+  takenSlots,
 }: {
   propertyId: string;
   propertySlug: string;
   contactKind: ListingContactKind;
-  availableSlots?: string[];
+  availableSlots: string[];
+  takenSlots: string[];
 }) {
-  const sellerOwned = contactKind === "seller";
+  const lockedToAvailability = availableSlots.length > 0 || contactKind === "seller";
+  const [picked, setPicked] = React.useState("");
   const [slots, setSlots] = React.useState<string[]>([""]);
-  const [picked, setPicked] = React.useState(availableSlots[0] ?? "");
   const [phone, setPhone] = React.useState("");
   const [mode, setMode] = React.useState("in_person");
   const [partySize, setPartySize] = React.useState("1");
   const [notes, setNotes] = React.useState("");
   const [done, setDone] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
+  const timezone = browserTimezone();
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    const iso = sellerOwned ? (picked ? [picked] : []) : slotsToIso(slots);
+    const iso = lockedToAvailability ? (picked ? [picked] : []) : slotsToIso(slots);
     if (iso.length === 0) {
       toast.error(
-        sellerOwned
-          ? "Pick one of the owner's available times."
+        lockedToAvailability
+          ? "Pick one of the posted viewing times."
           : "Pick at least one time that works for you."
       );
       return;
@@ -62,7 +65,7 @@ export function RequestViewingForm({
         phone,
         mode: mode as "in_person" | "video",
         partySize: Number(partySize),
-        timezone: browserTimezone(),
+        timezone,
         slots: iso,
         notes,
       });
@@ -81,9 +84,8 @@ export function RequestViewingForm({
         <CheckCircle2 className="h-12 w-12 text-primary" aria-hidden />
         <h2 className="mt-4 text-xl font-semibold">Request sent</h2>
         <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          {sellerOwned
-            ? "The owner will approve this time, then the platform confirms it. You will be notified at each step."
-            : `The ${CONTACT_KIND_LABELS[contactKind].toLowerCase()} has your preferred times and will reply.`}
+          The {CONTACT_KIND_LABELS[contactKind].toLowerCase()} will review that time. You will be
+          notified when they agree, offer another window, or when the platform confirms it.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-2">
           <Button asChild className="rounded-full">
@@ -97,17 +99,21 @@ export function RequestViewingForm({
     );
   }
 
+  const noWindows = lockedToAvailability && availableSlots.length === 0;
+
   return (
     <form className="space-y-6" onSubmit={submit}>
       <fieldset className="space-y-3" disabled={pending}>
         <legend className="text-sm font-semibold">
-          {sellerOwned ? "Pick one of the owner's times" : "When works for you?"}
+          {lockedToAvailability ? "Pick a posted time" : "When works for you?"}
         </legend>
-        {sellerOwned ? (
-          <AvailableSlotPicker
+        {lockedToAvailability ? (
+          <AvailabilityPicker
             slots={availableSlots}
+            taken={takenSlots}
             value={picked}
             onChange={setPicked}
+            timezone={timezone}
             disabled={pending}
           />
         ) : (
@@ -115,73 +121,73 @@ export function RequestViewingForm({
         )}
       </fieldset>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="mode">Viewing type</Label>
-          <Select value={mode} onValueChange={setMode} disabled={pending}>
-            <SelectTrigger id="mode">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="in_person">In person</SelectItem>
-              <SelectItem value="video">Video call</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="partySize">People attending</Label>
-          <Select value={partySize} onValueChange={setPartySize} disabled={pending}>
-            <SelectTrigger id="partySize">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[1, 2, 3, 4, 5, 6].map((n) => (
-                <SelectItem key={n} value={String(n)}>
-                  {n === 6 ? "6 or more" : n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      {noWindows ? null : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="mode">Viewing type</Label>
+              <Select value={mode} onValueChange={setMode} disabled={pending}>
+                <SelectTrigger id="mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="in_person">In person</SelectItem>
+                  <SelectItem value="video">Video call</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="partySize">People attending</Label>
+              <Select value={partySize} onValueChange={setPartySize} disabled={pending}>
+                <SelectTrigger id="partySize">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n === 6 ? "6 or more" : n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="phone">Contact number</Label>
-        <Input
-          id="phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          required
-          minLength={6}
-          maxLength={32}
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
-          disabled={pending}
-          placeholder="+92 300 000 0000"
-        />
-        <p className="text-xs text-muted-foreground">
-          Shared with the listing contact only, so they can reach you about this viewing.
-        </p>
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Contact number</Label>
+            <Input
+              id="phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              required
+              minLength={6}
+              maxLength={32}
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              disabled={pending}
+              placeholder="+92 300 000 0000"
+            />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="notes">Anything they should know? (optional)</Label>
-        <Textarea
-          id="notes"
-          rows={4}
-          maxLength={1000}
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          disabled={pending}
-          placeholder="Parking needs, questions about the service charge, who is coming with you…"
-        />
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="notes">Anything they should know? (optional)</Label>
+            <Textarea
+              id="notes"
+              rows={4}
+              maxLength={1000}
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              disabled={pending}
+            />
+          </div>
 
-      <Button type="submit" className="w-full rounded-full" disabled={pending}>
-        {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : null}
-        Request viewing
-      </Button>
+          <Button type="submit" className="w-full rounded-full" disabled={pending}>
+            {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : null}
+            Request viewing
+          </Button>
+        </>
+      )}
     </form>
   );
 }

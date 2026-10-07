@@ -3,7 +3,7 @@ import "server-only";
 import type { BookingStatus, Prisma, Role } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { isViewingOpen } from "@/lib/viewings";
+import { OPEN_VIEWING_STATUSES, isViewingOpen } from "@/lib/viewings";
 import { getMembership } from "@/server/agency";
 
 const bookingInclude = {
@@ -14,6 +14,7 @@ const bookingInclude = {
       title: true,
       city: true,
       address: true,
+      availableSlots: true,
       agentId: true,
       agencyId: true,
       sellerId: true,
@@ -23,6 +24,7 @@ const bookingInclude = {
     },
   },
   events: { orderBy: { createdAt: "asc" } },
+  assignedBroker: { select: { id: true, name: true, email: true } },
 } satisfies Prisma.BookingInclude;
 
 export type ViewingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
@@ -56,6 +58,24 @@ export function groupUserViewings(rows: ViewingRow[]) {
   return { upcoming, active, past };
 }
 
+export async function listBuyerAvailability(propertyId: string, posted: Date[] | string[]) {
+  const now = Date.now();
+  const takenRows = await prisma.booking.findMany({
+    where: {
+      propertyId,
+      status: { in: OPEN_VIEWING_STATUSES },
+      visitDate: { not: null },
+    },
+    select: { visitDate: true },
+  });
+  const taken = takenRows.map((row) => row.visitDate!.toISOString());
+  const open = posted
+    .map((slot) => new Date(slot))
+    .filter((slot) => !Number.isNaN(slot.valueOf()) && slot.valueOf() > now)
+    .map((slot) => slot.toISOString());
+  return { open, taken };
+}
+
 export function getUserViewing(id: string, userId: string) {
   return prisma.booking.findFirst({
     where: { id, userId },
@@ -77,8 +97,8 @@ export function listUserVisits(userId: string) {
 
 /**
  * Listings a console user may handle.
- * Brokers only see seller-owned listings (platform buyer assistance).
- * Agencies only see their own listings. Brokers never receive agency work.
+ * Brokers only act on viewings admin assigned to them.
+ * Agencies only see their own listings.
  */
 export async function hostPropertyScope(
   userId: string,
@@ -89,7 +109,7 @@ export async function hostPropertyScope(
     const membership = await getMembership(userId);
     return membership ? { agencyId: membership.agencyId } : null;
   }
-  if (role === "BROKER") return { sellerId: { not: null }, agencyId: null };
+  if (role === "BROKER") return { bookings: { some: { assignedBrokerId: userId } } };
   if (role === "SELLER") return { sellerId: userId };
   return null;
 }
@@ -99,6 +119,13 @@ export async function listHostViewings(
   role: Role,
   status?: BookingStatus
 ) {
+  if (role === "BROKER") {
+    return prisma.booking.findMany({
+      where: { assignedBrokerId: userId, ...(status ? { status } : {}) },
+      include: bookingInclude,
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    });
+  }
   const property = await hostPropertyScope(userId, role);
   if (!property) return [];
   return prisma.booking.findMany({
@@ -109,9 +136,21 @@ export async function listHostViewings(
 }
 
 export async function countHostViewings(userId: string, role: Role, status?: BookingStatus) {
+  if (role === "BROKER") {
+    return prisma.booking.count({
+      where: { assignedBrokerId: userId, ...(status ? { status } : {}) },
+    });
+  }
   const property = await hostPropertyScope(userId, role);
   if (!property) return 0;
   return prisma.booking.count({ where: { property, ...(status ? { status } : {}) } });
+}
+
+export function getBookingForAdmin(id: string) {
+  return prisma.booking.findUnique({
+    where: { id },
+    include: bookingInclude,
+  });
 }
 
 export async function countHostEnquiries(userId: string, role: Role, status?: "open" | "replied" | "closed") {

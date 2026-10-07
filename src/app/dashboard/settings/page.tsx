@@ -58,7 +58,7 @@ async function SettingsContent() {
                   ? ` · renews ${subscription.currentPeriodEnd.toLocaleDateString("en-US")}`
                   : ""
               }`
-            : "No active subscription. Agency plans are managed from the agency console."}
+            : "No active subscription. Agent plans are managed from the agent console."}
         </CardContent>
       </Card>
     </>

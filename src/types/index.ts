@@ -61,6 +61,8 @@ export interface Property {
   badges?: string[];
   videoUrl?: string;
   coordinates?: { lat: number; lng: number };
+  /** ISO timestamps the owner is willing to host. Empty means none posted yet. */
+  availableSlots: string[];
 }
 
 export interface SubscriptionPlan {

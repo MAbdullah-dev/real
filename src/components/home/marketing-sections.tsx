@@ -101,7 +101,7 @@ const why = [
   },
   {
     title: "Verified supply",
-    body: "Agencies are subscription-backed with listing caps, media standards, and compliance checkpoints.",
+    body: "Agents are subscription-backed with listing caps, media standards, and compliance checkpoints.",
     icon: BadgeCheck,
   },
   {
@@ -237,7 +237,7 @@ export function AgentHighlights() {
       <LayoutContainer>
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Agency highlights</h2>
+            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Agent highlights</h2>
             <p className="mt-3 text-muted-foreground">
               Meet a few of the professionals powering our marketplace — vetted, subscription-backed, and media-ready.
             </p>
@@ -396,10 +396,10 @@ export function ImmersivePreview() {
 const faqs = [
   {
     q: "Is booking instant?",
-    a: "No — Estate Elite coordinates luxury visits like a concierge. You submit a request; our team confirms by phone and aligns schedules with the listing contact.",
+    a: "No — Estate Elite coordinates luxury visits like a concierge. You submit a request; our team confirms by phone and aligns schedules with the listing agent.",
   },
   {
-    q: "How do agency subscriptions work?",
+    q: "How do agent subscriptions work?",
     a: "Plans cap active listings (Basic 3, Premium 6, Enterprise custom). Upgrades unlock richer media, analytics, and placement in curated categories.",
   },
   {

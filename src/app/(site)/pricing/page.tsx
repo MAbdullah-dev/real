@@ -9,7 +9,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: "Agency subscription plans with listing caps and premium tooling.",
+  description: "Agent subscription plans with listing caps and premium tooling.",
 };
 
 export default async function PricingPage() {
@@ -17,7 +17,7 @@ export default async function PricingPage() {
   return (
     <LayoutWide className="py-16 sm:py-20 lg:py-24">
       <div className="max-w-2xl">
-        <h1 className="text-4xl font-semibold tracking-tight">Plans for agencies</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">Plans for professional agents</h1>
         <p className="mt-4 text-muted-foreground">
           Transparent caps, upgradeable media, and analytics that mirror how modern brokerages operate.
         </p>

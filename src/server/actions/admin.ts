@@ -7,7 +7,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createAgencyForUser } from "@/server/agency";
 import { requireRole } from "@/server/auth";
-import { listingOwnerRecipientIds } from "@/server/listing-ownership";
 import { createNotification } from "@/server/notifications";
 import { slugify } from "@/server/property-input";
 
@@ -34,7 +33,7 @@ export async function moderatePropertyAction(
   const property = await prisma.property.update({
     where: { id: parsed.data.id },
     data: { status: parsed.data.status },
-    select: { title: true, slug: true, agentId: true, sellerId: true, agencyId: true },
+    select: { title: true, slug: true, agentId: true },
   });
 
   const copy: Record<string, string> = {
@@ -43,16 +42,10 @@ export async function moderatePropertyAction(
     draft: "was moved back to draft",
     pending_review: "is queued for review",
   };
-  const owners = await listingOwnerRecipientIds(property);
-  const recipientIds = owners.length > 0 ? owners : [property.agentId];
-  await Promise.all(
-    recipientIds.map((userId) =>
-      createNotification(
-        userId,
-        "Listing status changed",
-        `${property.title} ${copy[parsed.data.status]}.`
-      )
-    )
+  await createNotification(
+    property.agentId,
+    "Listing status changed",
+    `${property.title} ${copy[parsed.data.status]}.`
   );
 
   updateTag("properties");

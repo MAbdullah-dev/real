@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 
-import { AvailableSlotPicker } from "@/components/viewings/available-slot-picker";
+import { AvailabilityPicker } from "@/components/viewings/availability-picker";
 import { SlotPicker, slotsToIso } from "@/components/viewings/slot-picker";
+import { browserTimezone } from "@/lib/viewings";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,21 +26,22 @@ import { buyerUpdateViewingAction } from "@/server/actions/bookings";
 export function BuyerViewingActions({
   id,
   status,
+  proposedBy,
   availableSlots = [],
-  sellerOwned = false,
 }: {
   id: string;
   status: BookingStatus;
+  proposedBy?: string | null;
   availableSlots?: string[];
-  sellerOwned?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [rescheduleOpen, setRescheduleOpen] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
   const [slots, setSlots] = React.useState<string[]>([""]);
-  const [picked, setPicked] = React.useState(availableSlots[0] ?? "");
+  const [picked, setPicked] = React.useState("");
   const [reason, setReason] = React.useState("");
+  const lockAvailability = availableSlots.length > 0;
 
   function run(
     input: Parameters<typeof buyerUpdateViewingAction>[0],
@@ -62,7 +64,7 @@ export function BuyerViewingActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {status === "proposed" || status === "admin_proposed" ? (
+      {status === "proposed" ? (
         <Button
           size="sm"
           className="rounded-full"
@@ -70,7 +72,7 @@ export function BuyerViewingActions({
           onClick={() =>
             run(
               { id, intent: "accept" },
-              status === "admin_proposed" ? "You accepted the platform time" : "Time accepted"
+              proposedBy === "admin" ? "Time accepted" : "Sent to the platform"
             )
           }
         >
@@ -96,11 +98,13 @@ export function BuyerViewingActions({
                 listing contact.
               </DialogDescription>
             </DialogHeader>
-            {sellerOwned ? (
-              <AvailableSlotPicker
+            {lockAvailability ? (
+              <AvailabilityPicker
                 slots={availableSlots}
+                taken={[]}
                 value={picked}
                 onChange={setPicked}
+                timezone={browserTimezone()}
                 disabled={pending}
               />
             ) : (
@@ -110,7 +114,7 @@ export function BuyerViewingActions({
               className="w-full rounded-full"
               disabled={pending}
               onClick={() => {
-                const iso = sellerOwned ? (picked ? [picked] : []) : slotsToIso(slots);
+                const iso = lockAvailability ? (picked ? [picked] : []) : slotsToIso(slots);
                 if (iso.length === 0) {
                   toast.error("Pick at least one time.");
                   return;

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import type { Property } from "@/types";
 import { propertiesByCategory, toProperty, type PropertyWithAgent } from "@/server/mappers";
 import type { PropertyFilterParams, PropertySort } from "@/server/property-filters";
+import { toDatetimeLocalValue } from "@/lib/viewings";
 import type { PROPERTY_CATEGORIES } from "@/server/property-input";
 
 type PropertyFormCategories = (typeof PROPERTY_CATEGORIES)[number][];
@@ -173,26 +174,6 @@ export async function listSellerProperties(sellerId: string) {
   return listAgentProperties({ sellerId });
 }
 
-/** Seller-owned published listings the platform broker desk can handle. */
-export async function listPlatformSellerProperties() {
-  const rows = await prisma.property.findMany({
-    where: { sellerId: { not: null }, agencyId: null, status: "published" },
-    include: {
-      ...propertyInclude,
-      _count: { select: { bookings: true, leads: true } },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
-  return rows.map((row) => ({
-    property: toProperty(row),
-    status: row.status,
-    agentName: row.agent.name ?? "Owner",
-    bookings: row._count.bookings,
-    leads: row._count.leads,
-    updatedAt: row.updatedAt,
-  }));
-}
-
 /** Raw row (including drafts) for the agent edit form. */
 export async function getPropertyForEdit(id: string) {
   const row = await prisma.property.findUnique({
@@ -225,6 +206,7 @@ export async function getPropertyForEdit(id: string) {
       amenities: row.amenities.join(", "),
       badges: row.badges.join(", "),
       images: row.images.map((image) => image.url),
+      availableSlots: row.availableSlots.map(toDatetimeLocalValue),
       status: row.status === "rejected" ? ("draft" as const) : row.status,
     },
   };

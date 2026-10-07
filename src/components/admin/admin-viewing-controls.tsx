@@ -9,18 +9,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  adminAcceptViewingAction,
-  adminAssignBrokerAction,
-  adminProposeViewingAction,
-} from "@/server/actions/bookings";
+import { Textarea } from "@/components/ui/textarea";
+import { adminUpdateViewingAction } from "@/server/actions/bookings";
 
 function toLocalInput(date: Date | string | null) {
   if (!date) return "";
@@ -31,46 +21,57 @@ function toLocalInput(date: Date | string | null) {
     .slice(0, 16);
 }
 
-export type AdminBrokerOption = {
-  userId: string;
-  name: string;
-  city: string | null;
-};
-
 export function AdminViewingControls({
   id,
   status,
   visitDate,
   assignedBrokerId,
+  brokers,
   city,
-  brokersInCity,
-  allBrokers,
+  fallback,
 }: {
   id: string;
   status: BookingStatus;
   visitDate: string | null;
   assignedBrokerId: string | null;
   city: string;
-  brokersInCity: AdminBrokerOption[];
-  allBrokers: AdminBrokerOption[];
+  fallback: boolean;
+  brokers: Array<{ userId: string; user: { name: string | null; email: string | null }; city: string | null }>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [when, setWhen] = React.useState(() => toLocalInput(visitDate));
-  const [brokerId, setBrokerId] = React.useState(assignedBrokerId ?? "none");
-  const roster = brokersInCity.length > 0 ? brokersInCity : allBrokers;
+  const [note, setNote] = React.useState("");
+  const [brokerUserId, setBrokerUserId] = React.useState(assignedBrokerId ?? "");
 
-  function refresh() {
-    router.refresh();
+  function run(
+    intent: "accept" | "reschedule" | "decline" | "assign" | "skip_broker",
+    extra?: { visitDate?: string; brokerUserId?: string }
+  ) {
+    startTransition(async () => {
+      const result = await adminUpdateViewingAction({
+        id,
+        intent,
+        visitDate: extra?.visitDate,
+        note: note || undefined,
+        brokerUserId: extra?.brokerUserId,
+      });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Updated");
+      router.refresh();
+    });
   }
 
   return (
-    <div className="space-y-3">
-      {status === "awaiting_admin" || status === "admin_proposed" || status === "confirmed" ? (
-        <div className="flex flex-wrap items-end gap-2">
+    <div className="space-y-4">
+      {status === "pending_admin" || status === "proposed" ? (
+        <div className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor={`admin-when-${id}`} className="text-xs text-muted-foreground">
-              Date and time
+              Viewing time
             </Label>
             <Input
               id={`admin-when-${id}`}
@@ -82,101 +83,102 @@ export function AdminViewingControls({
               onChange={(event) => setWhen(event.target.value)}
             />
           </div>
-          {status === "awaiting_admin" || status === "admin_proposed" ? (
+          <Textarea
+            rows={2}
+            maxLength={500}
+            value={note}
+            disabled={pending}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Optional note to buyer and seller"
+          />
+          <div className="flex flex-wrap gap-2">
+            {status === "pending_admin" ? (
+              <Button
+                size="sm"
+                className="rounded-full"
+                disabled={pending}
+                onClick={() => run("accept")}
+              >
+                {pending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+                Accept this time
+              </Button>
+            ) : null}
             <Button
               size="sm"
+              variant="outline"
               className="rounded-full"
               disabled={pending || !when}
-              onClick={() =>
-                startTransition(async () => {
-                  const result = await adminAcceptViewingAction({
-                    id,
-                    visitDate: new Date(when).toISOString(),
-                  });
-                  if (result.error) {
-                    toast.error(result.error);
-                    return;
-                  }
-                  toast.success("Confirmed — buyer and seller notified");
-                  refresh();
-                })
-              }
+              onClick={() => run("reschedule", { visitDate: new Date(when).toISOString() })}
             >
-              {pending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-              Accept time
+              Send new time to both
             </Button>
-          ) : null}
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-full"
-            disabled={pending || !when}
-            onClick={() =>
-              startTransition(async () => {
-                const result = await adminProposeViewingAction({
-                  id,
-                  visitDate: new Date(when).toISOString(),
-                });
-                if (result.error) {
-                  toast.error(result.error);
-                  return;
-                }
-                toast.success("New time sent to buyer and seller");
-                refresh();
-              })
-            }
-          >
-            Reschedule
-          </Button>
+            {status === "pending_admin" ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="rounded-full text-muted-foreground"
+                disabled={pending}
+                onClick={() => run("decline")}
+              >
+                Decline
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
       {status === "confirmed" ? (
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">
-              {brokersInCity.length > 0
-                ? `Brokers in ${city}`
-                : `No brokers in ${city} — all active brokers`}
-            </Label>
-            <Select value={brokerId} onValueChange={setBrokerId} disabled={pending}>
-              <SelectTrigger className="w-64">
-                <SelectValue placeholder="No broker" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Continue without a broker</SelectItem>
-                {roster.map((broker) => (
-                  <SelectItem key={broker.userId} value={broker.userId}>
-                    {broker.name}
-                    {broker.city ? ` · ${broker.city}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="space-y-3">
+          <p className="text-sm font-medium">
+            Brokers in {city || "this city"}
+            {fallback ? " (no exact city match — showing all active brokers)" : ""}
+          </p>
+          {brokers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No active brokers to assign.</p>
+          ) : (
+            <div className="grid gap-2">
+              {brokers.map((broker) => (
+                <label
+                  key={broker.userId}
+                  className="flex items-center gap-3 rounded-2xl border border-border px-4 py-3 text-sm"
+                >
+                  <input
+                    type="radio"
+                    name={`broker-${id}`}
+                    className="accent-primary"
+                    checked={brokerUserId === broker.userId}
+                    onChange={() => setBrokerUserId(broker.userId)}
+                    disabled={pending}
+                  />
+                  <span>
+                    <span className="font-medium">{broker.user.name ?? "Broker"}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {broker.city ?? "No city"} · {broker.user.email}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              className="rounded-full"
+              disabled={pending || !brokerUserId}
+              onClick={() => run("assign", { brokerUserId })}
+            >
+              Assign broker
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-full"
+              disabled={pending}
+              onClick={() => run("skip_broker")}
+            >
+              Continue without a broker
+            </Button>
           </div>
-          <Button
-            size="sm"
-            className="rounded-full"
-            disabled={pending}
-            onClick={() =>
-              startTransition(async () => {
-                const result = await adminAssignBrokerAction({
-                  id,
-                  brokerUserId: brokerId === "none" ? undefined : brokerId,
-                });
-                if (result.error) {
-                  toast.error(result.error);
-                  return;
-                }
-                toast.success(
-                  brokerId === "none" ? "No broker assigned" : "Broker assigned"
-                );
-                refresh();
-              })
-            }
-          >
-            Save assignment
-          </Button>
         </div>
       ) : null}
     </div>

@@ -56,6 +56,7 @@ export const propertyInputSchema = z.object({
     .array(z.string().trim().url())
     .min(1, "Add at least one image.")
     .max(12, "Twelve images maximum."),
+  availableSlots: z.array(z.string()).optional().default([]),
   status: z.enum(["draft", "pending_review", "published"]).default("draft"),
 });
 

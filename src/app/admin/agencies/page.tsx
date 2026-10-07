@@ -14,7 +14,7 @@ async function AgentsTable() {
   const agents = await listAgentsWithStats();
 
   if (agents.length === 0) {
-    return <p className="text-sm text-muted-foreground">No agencies yet.</p>;
+    return <p className="text-sm text-muted-foreground">No brokers or agencies yet.</p>;
   }
 
   return (

@@ -4,9 +4,9 @@ import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { countHostEnquiries, countHostViewings } from "@/server/bookings";
+import { formatInZone } from "@/lib/viewings";
+import { countHostEnquiries, countHostViewings, listHostViewings } from "@/server/bookings";
 import { requireBroker } from "@/server/broker";
-import { listPlatformSellerProperties } from "@/server/properties";
 
 async function BrokerOverview() {
   const { session, profile, isAdmin } = await requireBroker();
@@ -14,11 +14,12 @@ async function BrokerOverview() {
     return <p className="text-sm text-muted-foreground">Complete onboarding to open the console.</p>;
   }
 
-  const [pendingViewings, openEnquiries, sellerListings] = await Promise.all([
-    countHostViewings(session.user.id, session.user.role, "pending"),
+  const [assignedViewings, confirmedCount, openEnquiries] = await Promise.all([
+    listHostViewings(session.user.id, session.user.role),
+    countHostViewings(session.user.id, session.user.role, "confirmed"),
     countHostEnquiries(session.user.id, session.user.role, "open"),
-    listPlatformSellerProperties(),
   ]);
+  const openAssigned = assignedViewings.filter((row) => row.status === "confirmed");
 
   return (
     <>
@@ -28,7 +29,7 @@ async function BrokerOverview() {
             Broker status:{" "}
             <span className="font-medium capitalize">{profile.status.replaceAll("_", " ")}</span>
             {profile.status === "pending_review"
-              ? " — you can review assigned seller-property work after approval."
+              ? " — assigned viewings appear here after approval."
               : null}
             {profile.statusNote ? ` ${profile.statusNote}` : null}
           </CardContent>
@@ -37,8 +38,8 @@ async function BrokerOverview() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          { label: "Seller listings", value: sellerListings.length },
-          { label: "Pending viewings", value: pendingViewings },
+          { label: "Assigned viewings", value: assignedViewings.length },
+          { label: "Confirmed upcoming", value: confirmedCount },
           { label: "Open enquiries", value: openEnquiries },
         ].map((card) => (
           <Card key={card.label} className="rounded-3xl">
@@ -54,24 +55,27 @@ async function BrokerOverview() {
 
       <Card className="rounded-3xl">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Seller-property work</CardTitle>
+          <CardTitle>Assigned viewings</CardTitle>
           <Button asChild size="sm" variant="outline" className="rounded-full">
             <Link href="/broker/viewings">Open viewings</Link>
           </Button>
         </CardHeader>
         <CardContent className="space-y-3">
-          {sellerListings.length === 0 ? (
+          {openAssigned.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              When a buyer asks about a seller-owned home, it appears here. Agency listings stay
-              with the agency.
+              When an admin assigns you a confirmed viewing, the listing and accepted time appear
+              here.
             </p>
           ) : (
-            sellerListings.slice(0, 5).map((row) => (
-              <div key={row.property.id} className="flex items-center justify-between gap-3">
+            openAssigned.slice(0, 5).map((row) => (
+              <div key={row.id} className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-medium">{row.property.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {row.property.city} · {row.leads} enquiries · {row.bookings} viewings
+                    {row.property.city}
+                    {row.visitDate
+                      ? ` · ${formatInZone(row.visitDate, row.timezone)}`
+                      : " · time confirmed"}
                   </p>
                 </div>
               </div>
@@ -89,7 +93,7 @@ export default function BrokerHomePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Broker overview</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          You represent the platform for seller-owned properties. You do not create or own listings.
+          Assigned viewings only. You do not create listings or pick up unassigned seller requests.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl" />}>

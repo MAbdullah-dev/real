@@ -1,7 +1,7 @@
 import type { Property, PropertyPurpose } from "@/types";
 
 /** Seed source only — pages read from Prisma via `@/server/properties`. */
-export type SeedProperty = Omit<Property, "contact"> & {
+export type SeedProperty = Omit<Property, "contact" | "availableSlots"> & {
   agentName: string;
   agentAvatar: string;
 };

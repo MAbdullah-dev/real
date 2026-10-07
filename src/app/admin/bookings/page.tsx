@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { AdminViewingControls } from "@/components/admin/admin-viewing-controls";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ViewingStatusBadge } from "@/components/viewings/viewing-meta";
 import {
@@ -14,89 +13,101 @@ import {
 } from "@/components/ui/table";
 import { formatInZone } from "@/lib/viewings";
 import { listAllBookings } from "@/server/bookings";
-import { listActiveBrokers } from "@/server/broker";
 
 async function BookingMonitor() {
-  const [bookings, brokers] = await Promise.all([listAllBookings(), listActiveBrokers()]);
+  const bookings = await listAllBookings();
+  const queue = bookings.filter((row) => row.status === "pending_admin");
 
   if (bookings.length === 0) {
-    return <p className="text-sm text-muted-foreground">No viewing requests yet.</p>;
+    return <p className="text-sm text-muted-foreground">No booking requests yet.</p>;
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Seller-owned viewings wait here after the buyer and owner agree. Accept the time, then
-        optionally assign a broker in that city.
-      </p>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Property</TableHead>
-            <TableHead>Guest</TableHead>
-            <TableHead>Time</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Action</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {bookings.map((booking) => {
-            const city = booking.property.city;
-            const inCity = brokers.all.filter(
-              (broker) => (broker.city ?? "").trim().toLowerCase() === city.trim().toLowerCase()
-            );
-            const options = (list: typeof brokers.all) =>
-              list.map((broker) => ({
-                userId: broker.userId,
-                name: broker.user.name ?? broker.user.email ?? "Broker",
-                city: broker.city,
-              }));
+    <div className="space-y-8">
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">
+          Needs platform review{" "}
+          <span className="font-normal text-muted-foreground">({queue.length})</span>
+        </h2>
+        {queue.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No agreed times waiting on you.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Property</TableHead>
+                <TableHead>Buyer</TableHead>
+                <TableHead>Agreed time</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {queue.map((booking) => (
+                <TableRow key={booking.id}>
+                  <TableCell className="font-medium">{booking.property.title}</TableCell>
+                  <TableCell>{booking.name}</TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">
+                    {booking.visitDate
+                      ? formatInZone(booking.visitDate, booking.timezone)
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Link
+                      href={`/admin/bookings/${booking.id}`}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      Review
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </section>
 
-            return (
-              <TableRow key={booking.id} className="align-top">
-                <TableCell className="font-medium">
-                  <Link href={`/properties/${booking.property.slug}`} className="hover:underline">
-                    {booking.property.title}
-                  </Link>
-                  <p className="text-xs text-muted-foreground">{city}</p>
-                  {booking.assignedBroker ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Broker: {booking.assignedBroker.name ?? booking.assignedBroker.email}
-                    </p>
-                  ) : null}
-                </TableCell>
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">All bookings</h2>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Property</TableHead>
+              <TableHead>Guest</TableHead>
+              <TableHead>City</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {bookings.map((booking) => (
+              <TableRow key={booking.id}>
+                <TableCell className="font-medium">{booking.property.title}</TableCell>
                 <TableCell>
                   {booking.name}
                   <p className="text-xs text-muted-foreground">{booking.email}</p>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {booking.visitDate
-                    ? formatInZone(booking.visitDate, booking.timezone)
-                    : "—"}
-                </TableCell>
+                <TableCell className="text-muted-foreground">{booking.property.city}</TableCell>
                 <TableCell>
                   <ViewingStatusBadge status={booking.status} />
+                  {booking.assignedBroker ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Broker: {booking.assignedBroker.name}
+                    </p>
+                  ) : null}
                 </TableCell>
-                <TableCell className="min-w-[20rem]">
-                  {booking.property.sellerId ? (
-                    <AdminViewingControls
-                      id={booking.id}
-                      status={booking.status}
-                      visitDate={booking.visitDate?.toISOString() ?? null}
-                      assignedBrokerId={booking.assignedBrokerId}
-                      city={city}
-                      brokersInCity={options(inCity)}
-                      allBrokers={options(brokers.all)}
-                    />
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Agency listing — handled by the firm.</p>
-                  )}
+                <TableCell className="text-right">
+                  <Link
+                    href={`/admin/bookings/${booking.id}`}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    Open
+                  </Link>
                 </TableCell>
               </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+            ))}
+          </TableBody>
+        </Table>
+      </section>
     </div>
   );
 }
@@ -105,9 +116,10 @@ export default function AdminBookingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Viewings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Bookings</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Confirm agreed times, reschedule, and assign a city broker when you want one.
+          Seller viewings land here after both sides agree a time. Accept, send a new time to both,
+          then assign a city broker or continue without one.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl" />}>

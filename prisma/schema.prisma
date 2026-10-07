@@ -30,6 +30,7 @@ enum PropertyStatus {
 enum BookingStatus {
   pending
   proposed
+  pending_admin
   confirmed
   declined
   cancelled
@@ -108,6 +109,7 @@ model User {
   properties     Property[]      @relation("ManagedProperties")
   ownedProperties Property[]     @relation("OwnedProperties")
   bookings       Booking[]
+  assignedViewings Booking[] @relation("AssignedBrokerViewings")
   leads          Lead[]
   leadMessages   LeadMessage[]
   wishlist       WishlistItem[]
@@ -288,6 +290,9 @@ model Property {
   lng         Float?
   status      PropertyStatus  @default(draft)
 
+  /** Future viewing windows the owner is willing to host. Buyers pick from these. */
+  availableSlots DateTime[]
+
   /** Seller-owned listing. Null when the agency owns the listing. */
   sellerId String?
   seller   User?   @relation("OwnedProperties", fields: [sellerId], references: [id])
@@ -341,15 +346,24 @@ model Booking {
   status     BookingStatus @default(pending)
   statusNote String?       @db.Text
 
-  /** Up to three buyer-preferred start times, stored in UTC. */
+  /** Buyer-selected time(s). Seller listings store the single chosen window. */
   slots     DateTime[]
   /** IANA zone the buyer picked the slots in, so both sides read the same wall clock. */
   timezone  String    @default("UTC")
   mode      VisitMode @default(in_person)
   partySize Int       @default(1)
 
-  /** Agreed start time once confirmed, or the host's counter-proposal while `proposed`. */
+  /** Agreed start time once confirmed, or the current offer while negotiating. */
   visitDate DateTime?
+
+  /** Who last offered a new time: seller | admin. Null while the buyer is waiting on the seller. */
+  proposedBy String?
+
+  buyerAcceptedAt  DateTime?
+  sellerAcceptedAt DateTime?
+
+  assignedBrokerId String?
+  assignedBroker   User?   @relation("AssignedBrokerViewings", fields: [assignedBrokerId], references: [id], onDelete: SetNull)
 
   events BookingEvent[]
 
@@ -360,6 +374,7 @@ model Booking {
   @@index([userId])
   @@index([status])
   @@index([email])
+  @@index([assignedBrokerId])
 }
 
 /** Append-only audit of every viewing state change, shown to both sides as a timeline. */

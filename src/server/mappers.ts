@@ -101,6 +101,7 @@ export function toProperty(row: PropertyWithAgent): Property {
     videoUrl: row.videoUrl ?? undefined,
     coordinates:
       row.lat != null && row.lng != null ? { lat: row.lat, lng: row.lng } : undefined,
+    availableSlots: row.availableSlots.map((slot) => slot.toISOString()),
   };
 }
 

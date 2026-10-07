@@ -11,7 +11,7 @@ export default function BrokerViewingsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Viewings</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Seller-owned viewing requests. Agency listings never appear here.
+          Viewings the platform assigned to you, with the confirmed date and time.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl" />}>

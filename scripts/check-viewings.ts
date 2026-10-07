@@ -7,15 +7,18 @@ import assert from "node:assert/strict";
 
 import { rateLimit } from "../src/lib/rate-limit";
 import {
-  MAX_AVAILABILITY_SLOTS,
+  MAX_AVAILABILITY,
   MAX_SLOTS,
   MIN_LEAD_HOURS,
+  canAdminTransition,
   canHostTransition,
+  canSellerTransition,
   formatInZone,
-  isAllowedAvailabilitySlot,
   isViewingOpen,
-  parseAvailabilitySlots,
+  parseAvailability,
   parseSlots,
+  sameSlot,
+  slotInList,
 } from "../src/lib/viewings";
 
 const NOW = Date.parse("2026-03-01T12:00:00Z");
@@ -57,24 +60,15 @@ assert.ok(
   `more than ${MAX_SLOTS} slots must be rejected`
 );
 
-assert.ok("error" in parseAvailabilitySlots([], NOW), "seller availability cannot be empty");
-const sellerSet = Array.from({ length: MAX_SLOTS + 2 }, (_, i) => days(i + 1));
-assert.ok(
-  !("error" in parseAvailabilitySlots(sellerSet, NOW)),
-  "a seller may list more times than a buyer request"
-);
-assert.ok(
-  "error" in
-    parseAvailabilitySlots(
-      Array.from({ length: MAX_AVAILABILITY_SLOTS + 1 }, (_, i) => days(i + 1)),
-      NOW
-    ),
-  `more than ${MAX_AVAILABILITY_SLOTS} availability slots must be rejected`
-);
+const windows = ok(parseAvailability([days(1), days(2), days(3), days(4)], NOW)).slots;
+assert.equal(windows.length, 4, `listing availability may hold up to ${MAX_AVAILABILITY} windows`);
+assert.ok(slotInList(windows[0], windows), "posted times are findable");
+assert.ok(sameSlot(windows[0], new Date(windows[0].valueOf() + 30_000)), "slots match within a minute");
+assert.ok(!slotInList(new Date(windows[0].valueOf() + 120_000), windows), "a different minute is not the same window");
 
 /* State machine --------------------------------------------------------- */
 
-assert.ok(canHostTransition("pending", "confirmed"), "pending → confirmed");
+assert.ok(canHostTransition("pending", "confirmed"), "agency pending → confirmed");
 assert.ok(canHostTransition("proposed", "confirmed"), "proposed → confirmed");
 assert.ok(canHostTransition("confirmed", "completed"), "confirmed → completed");
 assert.ok(canHostTransition("confirmed", "proposed"), "a host may move a confirmed time");
@@ -83,16 +77,23 @@ assert.ok(!canHostTransition("completed", "confirmed"), "completed is terminal")
 assert.ok(!canHostTransition("cancelled", "confirmed"), "cancelled is terminal");
 assert.ok(!canHostTransition("declined", "completed"), "declined cannot complete");
 assert.ok(!canHostTransition("pending", "completed"), "a visit cannot complete before it happens");
+assert.ok(
+  !canHostTransition("pending", "pending_admin"),
+  "agency hosts do not send viewings to the platform queue"
+);
 
-const window = [new Date("2026-04-01T10:00:00Z")];
-assert.ok(isAllowedAvailabilitySlot(window, new Date("2026-04-01T10:00:00Z")));
-assert.ok(!isAllowedAvailabilitySlot(window, new Date("2026-04-01T11:00:00Z")));
+assert.ok(canSellerTransition("pending", "pending_admin"), "seller agrees → platform");
+assert.ok(canSellerTransition("pending", "proposed"), "seller may send a new time to the buyer");
+assert.ok(!canSellerTransition("pending", "confirmed"), "seller cannot self-confirm");
+assert.ok(canSellerTransition("proposed", "pending_admin"), "seller may accept an admin offer back to platform");
+assert.ok(canAdminTransition("pending_admin", "confirmed"), "admin accept");
+assert.ok(canAdminTransition("pending_admin", "proposed"), "admin reschedule");
+assert.ok(!canAdminTransition("pending", "confirmed"), "admin does not skip seller agreement");
 
 assert.ok(
   isViewingOpen("pending") &&
     isViewingOpen("proposed") &&
-    isViewingOpen("awaiting_admin") &&
-    isViewingOpen("admin_proposed") &&
+    isViewingOpen("pending_admin") &&
     isViewingOpen("confirmed")
 );
 assert.ok(

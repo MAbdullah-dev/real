@@ -19,19 +19,17 @@ import { listHostViewings } from "@/server/bookings";
 export async function ViewingInbox({ emptyHref }: { emptyHref?: string }) {
   const session = await requireAuth();
   const viewings = await listHostViewings(session.user.id, session.user.role);
-  const variant =
-    session.user.role === "BROKER"
-      ? "broker"
-      : session.user.role === "SELLER"
-        ? "seller"
-        : "agency";
 
   if (viewings.length === 0) {
     return (
       <EmptyState
         icon={CalendarRange}
         title="No viewing requests yet"
-        description="When a buyer asks to view one of your published listings, it lands here with their contact details and preferred times."
+        description={
+          session.user.role === "BROKER"
+            ? "When the platform assigns you a confirmed viewing, it lands here with the accepted time."
+            : "When a buyer asks to view one of your published listings, it lands here with their contact details and preferred times."
+        }
         {...(emptyHref ? { action: { label: "Review listings", href: emptyHref } } : {})}
       />
     );
@@ -53,7 +51,7 @@ export async function ViewingInbox({ emptyHref }: { emptyHref?: string }) {
           </p>
         ) : (
           open.map((viewing) => (
-            <HostViewingCard key={viewing.id} viewing={viewing} variant={variant} />
+            <HostViewingCard key={viewing.id} viewing={viewing} role={session.user.role} />
           ))
         )}
       </section>
@@ -64,7 +62,7 @@ export async function ViewingInbox({ emptyHref }: { emptyHref?: string }) {
             History <span className="font-normal text-muted-foreground">({closed.length})</span>
           </h2>
           {closed.map((viewing) => (
-            <HostViewingCard key={viewing.id} viewing={viewing} variant={variant} />
+            <HostViewingCard key={viewing.id} viewing={viewing} role={session.user.role} />
           ))}
         </section>
       ) : null}
@@ -76,10 +74,10 @@ type Viewing = Awaited<ReturnType<typeof listHostViewings>>[number];
 
 function HostViewingCard({
   viewing,
-  variant,
+  role,
 }: {
   viewing: Viewing;
-  variant: "agency" | "seller" | "broker";
+  role: string;
 }) {
   return (
     <Card className="rounded-3xl">
@@ -138,13 +136,9 @@ function HostViewingCard({
               status={viewing.status}
               slots={viewing.slots.map((slot) => slot.toISOString())}
               visitDate={viewing.visitDate?.toISOString() ?? null}
-              variant={variant}
+              flow={role === "SELLER" ? "seller" : role === "BROKER" ? "broker" : "agency"}
+              proposedBy={viewing.proposedBy}
             />
-            {viewing.assignedBroker ? (
-              <p className="text-xs text-muted-foreground">
-                Assigned broker: {viewing.assignedBroker.name ?? viewing.assignedBroker.email}
-              </p>
-            ) : null}
           </>
         ) : null}
 

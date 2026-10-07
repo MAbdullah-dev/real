@@ -147,7 +147,7 @@ export function AgentOnboardingWizard(props: Props) {
   return (
     <Card className="glass-panel rounded-3xl border-white/20 shadow-[var(--shadow-soft)]">
       <CardHeader>
-        <CardTitle className="text-2xl text-primary-foreground">Agency onboarding</CardTitle>
+        <CardTitle className="text-2xl text-primary-foreground">Agent onboarding</CardTitle>
         <CardDescription className="text-primary-foreground/70">
           {props.status === "rejected"
             ? `Needs changes: ${props.statusNote ?? "Update the flagged details and resubmit."}`

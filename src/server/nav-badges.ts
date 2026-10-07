@@ -14,37 +14,44 @@ import { hostEnquiriesHref, hostViewingsHref } from "@/server/roles";
 export async function navBadges(userId: string, role: Role) {
   const badges: Record<string, number> = {};
 
-  const [unread, replies] = await Promise.all([
+  const [unread, proposed, replies] = await Promise.all([
     countUnreadNotifications(userId),
+    prisma.booking.count({ where: { userId, status: "proposed" } }),
     prisma.lead.count({ where: { userId, status: "replied" } }),
   ]);
 
-  const buyerNeedsAction = await prisma.booking.count({
-    where: { userId, status: { in: ["proposed", "admin_proposed"] } },
-  });
-
   badges["/dashboard/notifications"] = unread;
-  badges["/dashboard/viewings"] = buyerNeedsAction;
+  badges["/dashboard/viewings"] = proposed;
   badges["/dashboard/messages"] = replies;
 
   if (role === "ADMIN") {
-    badges["/admin/bookings"] = await prisma.booking.count({
-      where: { status: { in: ["awaiting_admin", "admin_proposed"] } },
-    });
+    badges["/admin/bookings"] = await prisma.booking.count({ where: { status: "pending_admin" } });
   }
 
   if (role !== "USER") {
     const scope = await hostPropertyScope(userId, role);
     if (scope) {
-      const sellerStatuses =
-        role === "SELLER" || role === "BROKER"
-          ? (["pending", "admin_proposed"] as const)
-          : (["pending"] as const);
+      const viewingWhere =
+        role === "BROKER"
+          ? { assignedBrokerId: userId, status: "confirmed" as const }
+          : role === "SELLER"
+            ? {
+                property: scope,
+                OR: [
+                  { status: "pending" as const },
+                  { status: "proposed" as const, proposedBy: "admin" },
+                ],
+              }
+            : { property: scope, status: "pending" as const };
+
       const [pendingViewings, openEnquiries] = await Promise.all([
-        prisma.booking.count({
-          where: { property: scope, status: { in: [...sellerStatuses] } },
+        prisma.booking.count({ where: viewingWhere }),
+        prisma.lead.count({
+          where:
+            role === "BROKER"
+              ? { property: scope, status: "open" }
+              : { property: scope, status: "open" },
         }),
-        prisma.lead.count({ where: { property: scope, status: "open" } }),
       ]);
       badges[hostViewingsHref(role)] = pendingViewings;
       badges[hostEnquiriesHref(role)] = openEnquiries;

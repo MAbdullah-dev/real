@@ -11,7 +11,8 @@ export default function SellerViewingsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Viewings</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Buyers asking to see your property. Pick one of their times or offer your own.
+          Buyers pick from the times you posted. Approve a request to send it to the platform, or
+          offer a different time and wait for the buyer to accept.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl" />}>

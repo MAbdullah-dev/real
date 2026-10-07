@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { sameSlot } from "@/lib/viewings";
 import { hostUpdateViewingAction } from "@/server/actions/bookings";
 
 function toLocalInput(date: Date | string | null) {
@@ -24,28 +25,26 @@ function toLocalInput(date: Date | string | null) {
 type HostAction =
   | "confirmed"
   | "proposed"
+  | "pending_admin"
   | "declined"
   | "completed"
   | "no_show"
   | "cancelled";
 
-/**
- * The host picks a time — normally one of the buyer's slots — then confirms it,
- * or offers a different one which the buyer has to accept.
- */
 export function HostViewingControls({
   id,
   status,
   slots,
   visitDate,
-  variant = "agency",
+  flow = "agency",
+  proposedBy,
 }: {
   id: string;
   status: BookingStatus;
-  /** Buyer-preferred times as ISO strings. */
   slots: string[];
   visitDate: string | null;
-  variant?: "agency" | "seller" | "broker";
+  flow?: "agency" | "seller" | "broker";
+  proposedBy?: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -75,16 +74,21 @@ export function HostViewingControls({
   }
 
   const canSchedule =
-    variant !== "broker" &&
-    (status === "pending" ||
-      status === "proposed" ||
-      status === "confirmed" ||
-      status === "awaiting_admin" ||
-      status === "admin_proposed");
-  const sellerApprove =
-    variant === "seller" && (status === "pending" || status === "proposed");
-  const sellerAcceptAdmin = variant === "seller" && status === "admin_proposed";
+    flow !== "broker" &&
+    (status === "pending" || status === "proposed" || status === "confirmed");
   const pastDue = Boolean(visitDate && new Date(visitDate) <= new Date());
+  const waitingOnBuyer = flow === "seller" && status === "proposed" && proposedBy !== "admin";
+  const adminOffer = flow === "seller" && status === "proposed" && proposedBy === "admin";
+  const agreed = visitDate ?? slots[0] ?? null;
+  const timeMatches = Boolean(when && agreed && sameSlot(new Date(when), agreed));
+
+  if (flow === "seller" && status === "pending_admin") {
+    return (
+      <p className="text-sm text-muted-foreground">
+        You agreed this time. Waiting for the platform to confirm it.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -131,7 +135,7 @@ export function HostViewingControls({
       {noteOpen ? (
         <div className="space-y-1">
           <Label htmlFor={`note-${id}`} className="text-xs text-muted-foreground">
-            Message to the buyer (optional)
+            Message (optional)
           </Label>
           <Textarea
             id={`note-${id}`}
@@ -140,13 +144,12 @@ export function HostViewingControls({
             value={note}
             disabled={pending}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Gate code, who to ask for at reception, why the time changed…"
           />
         </div>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        {sellerApprove || (variant === "agency" && (status === "pending" || status === "proposed")) ? (
+        {flow === "agency" && (status === "pending" || status === "proposed") ? (
           <Button
             size="sm"
             className="rounded-full"
@@ -154,23 +157,34 @@ export function HostViewingControls({
             onClick={() => run("confirmed", { withTime: true })}
           >
             {pending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-            {sellerApprove ? "Approve for platform" : "Confirm"}
+            Confirm
           </Button>
         ) : null}
 
-        {sellerAcceptAdmin ? (
+        {flow === "seller" && status === "pending" ? (
+          <Button
+            size="sm"
+            className="rounded-full"
+            disabled={pending || !when || !timeMatches}
+            onClick={() => run("pending_admin", { withTime: true })}
+          >
+            {pending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+            Approve and send to platform
+          </Button>
+        ) : null}
+
+        {adminOffer ? (
           <Button
             size="sm"
             className="rounded-full"
             disabled={pending}
-            onClick={() => run("confirmed")}
+            onClick={() => run("pending_admin", { withTime: true })}
           >
-            {pending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
             Accept platform time
           </Button>
         ) : null}
 
-        {canSchedule && status !== "admin_proposed" ? (
+        {canSchedule && !waitingOnBuyer ? (
           <Button
             size="sm"
             variant="outline"
@@ -180,6 +194,10 @@ export function HostViewingControls({
           >
             Offer this time instead
           </Button>
+        ) : null}
+
+        {waitingOnBuyer ? (
+          <p className="text-sm text-muted-foreground">Waiting for the buyer to accept your time.</p>
         ) : null}
 
         {status === "confirmed" && pastDue ? (

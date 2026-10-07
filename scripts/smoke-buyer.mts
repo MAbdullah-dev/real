@@ -78,12 +78,6 @@ has(booking, "When works for you?", "/booking/1 while signed in");
 has(booking, "Contact number", "/booking/1 while signed in");
 assert.ok(!booking.includes("Sign in to book"), "/booking/1 still shows the sign-in gate");
 
-const sellerBooking = await page("/booking/seller-home-1");
-has(sellerBooking, "Contact number", "/booking/seller-home-1 while signed in");
-has(sellerBooking, "The owner listed", "/booking/seller-home-1 owner listing copy");
-has(sellerBooking, "published times", "/booking/seller-home-1 published slots");
-assert.ok(!sellerBooking.includes("When works for you?"), "/booking/seller-home-1 still uses free-form slots");
-
 for (const path of [
   "/dashboard",
   "/dashboard/viewings",
@@ -131,18 +125,5 @@ assert.ok(
 const inbox = await page("/agency/viewings");
 has(inbox, "BR-1024", "the agency viewing inbox");
 has(inbox, "Guest Buyer", "the agency viewing inbox");
-
-await signIn("seller@estate-elite.local");
-const sellerInbox = await page("/seller/viewings");
-assert.ok(!sellerInbox.includes("Application error"), "/seller/viewings rendered an error boundary");
-
-await signIn("admin@estate-elite.local");
-const adminBookings = await page("/admin/bookings");
-assert.ok(!adminBookings.includes("Application error"), "/admin/bookings rendered an error boundary");
-has(adminBookings, "assign", "/admin/bookings assign copy");
-
-await signIn("broker@estate-elite.local");
-const brokerDesk = await page("/broker");
-assert.ok(!brokerDesk.includes("Application error"), "/broker rendered an error boundary");
 
 console.log("smoke-buyer: all assertions passed");

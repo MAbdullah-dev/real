@@ -11,7 +11,8 @@ import {
   requireAgency,
 } from "@/server/agency";
 import { isSettingEnabled } from "@/server/admin";
-import { propertyInputSchema, slugify, type PropertyInput } from "@/server/property-input";
+import { parseAvailability } from "@/lib/viewings";
+import { propertyInputSchema, slugify, type PropertyInput, type PropertyValues } from "@/server/property-input";
 import { canCreateProperty, canPublishProperty, canSubmitProperty } from "@/server/property-permissions";
 import {
   getSellerListingAllowance,
@@ -49,6 +50,18 @@ async function uniqueSlug(title: string, ignoreId?: string) {
     candidate = `${base}-${attempt + 2}`;
   }
   return `${base}-${Date.now()}`;
+}
+
+function availabilityRows(
+  values: PropertyValues,
+  requireSlots: boolean
+): { slots: Date[] } | { error: string } {
+  const filled = (values.availableSlots ?? []).filter((slot) => slot.trim());
+  if (filled.length === 0) {
+    if (requireSlots) return { error: "Add at least one viewing time buyers can book." };
+    return { slots: [] };
+  }
+  return parseAvailability(filled);
 }
 
 function imageRows(images: string[]): Prisma.PropertyImageCreateWithoutPropertyInput[] {
@@ -141,6 +154,9 @@ export async function createPropertyAction(input: PropertyInput): Promise<Proper
   const resolved = await resolveAgencyStatus(values.status, isAdmin, ctx.agency?.status ?? null);
   if (resolved.error && values.status !== "draft") return { error: resolved.error };
 
+  const avail = availabilityRows(values, false);
+  if ("error" in avail) return { error: avail.error };
+
   const slug = await uniqueSlug(values.title);
 
   const created = await prisma.property.create({
@@ -161,6 +177,7 @@ export async function createPropertyAction(input: PropertyInput): Promise<Proper
       categories: values.categories,
       amenities: values.amenities,
       badges: values.badges,
+      availableSlots: avail.slots,
       status: resolved.status,
       agencyId: targetAgencyId,
       agentId: ctx.session.user.id,
@@ -201,6 +218,9 @@ export async function createSellerPropertyAction(
   const resolved = await resolveSellerStatus(values.status, actor);
   if (resolved.error && values.status !== "draft") return { error: resolved.error };
 
+  const avail = availabilityRows(values, resolved.status !== "draft");
+  if ("error" in avail) return { error: avail.error };
+
   const slug = await uniqueSlug(values.title);
   const created = await prisma.property.create({
     data: {
@@ -220,6 +240,7 @@ export async function createSellerPropertyAction(
       categories: values.categories,
       amenities: values.amenities,
       badges: values.badges,
+      availableSlots: avail.slots,
       status: resolved.status,
       sellerId: ctx.session.user.id,
       agentId: ctx.session.user.id,
@@ -256,6 +277,9 @@ export async function updatePropertyAction(
   const resolved = await resolveAgencyStatus(values.status, isAdmin, ctx.agency?.status ?? null);
   if (resolved.error && values.status !== "draft") return { error: resolved.error };
 
+  const avail = availabilityRows(values, false);
+  if ("error" in avail) return { error: avail.error };
+
   const slug = await uniqueSlug(values.title, id);
 
   await prisma.$transaction([
@@ -279,6 +303,7 @@ export async function updatePropertyAction(
         categories: values.categories,
         amenities: values.amenities,
         badges: values.badges,
+        availableSlots: avail.slots,
         status: resolved.status,
         images: { create: imageRows(values.images) },
       },
@@ -316,6 +341,9 @@ export async function updateSellerPropertyAction(
   const resolved = await resolveSellerStatus(values.status, actor);
   if (resolved.error && values.status !== "draft") return { error: resolved.error };
 
+  const avail = availabilityRows(values, resolved.status !== "draft");
+  if ("error" in avail) return { error: avail.error };
+
   const slug = await uniqueSlug(values.title, id);
 
   await prisma.$transaction([
@@ -339,6 +367,7 @@ export async function updateSellerPropertyAction(
         categories: values.categories,
         amenities: values.amenities,
         badges: values.badges,
+        availableSlots: avail.slots,
         status: resolved.status,
         images: { create: imageRows(values.images) },
       },

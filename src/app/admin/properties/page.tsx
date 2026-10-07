@@ -35,7 +35,7 @@ async function ApprovalsTable() {
         <TableHeader>
           <TableRow>
             <TableHead>Title</TableHead>
-            <TableHead>Owner</TableHead>
+            <TableHead>Agent</TableHead>
             <TableHead>City</TableHead>
             <TableHead className="text-right">Price</TableHead>
             <TableHead>Status</TableHead>
@@ -43,14 +43,14 @@ async function ApprovalsTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {listings.map(({ property, status, ownerLabel }) => (
+          {listings.map(({ property, status, agentName }) => (
             <TableRow key={property.id}>
               <TableCell className="font-medium">
                 <Link href={`/properties/${property.slug}`} className="hover:underline">
                   {property.title}
                 </Link>
               </TableCell>
-              <TableCell className="text-muted-foreground">{ownerLabel}</TableCell>
+              <TableCell className="text-muted-foreground">{agentName}</TableCell>
               <TableCell>{property.city}</TableCell>
               <TableCell className="text-right tabular-nums">
                 {formatPrice(property.price)}
@@ -77,7 +77,7 @@ export default function AdminPropertiesPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Property approvals</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Publish, unpublish, or reject listings. The listing owner is notified on every change.
+          Publish, unpublish, or reject listings. The agent is notified on every change.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl" />}>

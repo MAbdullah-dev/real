@@ -263,6 +263,13 @@ async function main() {
     },
   });
 
+  const inDays = (days: number, hour: number) => {
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() + days);
+    date.setUTCHours(hour, 0, 0, 0);
+    return date;
+  };
+
   const agentAgency = Object.fromEntries(agents.map((a) => [a.id, a.agencyId]));
 
   for (const property of MOCK_PROPERTIES) {
@@ -471,16 +478,75 @@ async function main() {
     });
   }
 
-  const inDays = (days: number, hour: number) => {
-    const date = new Date();
-    date.setUTCDate(date.getUTCDate() + days);
-    date.setUTCHours(hour, 0, 0, 0);
-    return date;
-  };
+  await prisma.property.upsert({
+    where: { id: "seller-home-1" },
+    update: {
+      slug: "dha-family-home-karachi",
+      title: "DHA Family Home — Karachi",
+      description:
+        "A corner family house with a lawn, generator, and a quiet street. Owner-listed; viewings go through the platform after both sides agree a time.",
+      address: "Street 8, Phase 6, DHA",
+      city: "Karachi",
+      country: "Pakistan",
+      price: 185000,
+      purpose: "sale",
+      bedrooms: 4,
+      bathrooms: 4,
+      areaSqm: 280,
+      categories: ["home", "family"],
+      amenities: ["Lawn", "Generator", "Parking"],
+      badges: ["New"],
+      furnished: false,
+      status: "published",
+      sellerId: seller.id,
+      agentId: seller.id,
+      agencyId: null,
+      availableSlots: [inDays(3, 10), inDays(5, 16), inDays(8, 11)],
+    },
+    create: {
+      id: "seller-home-1",
+      slug: "dha-family-home-karachi",
+      title: "DHA Family Home — Karachi",
+      description:
+        "A corner family house with a lawn, generator, and a quiet street. Owner-listed; viewings go through the platform after both sides agree a time.",
+      address: "Street 8, Phase 6, DHA",
+      city: "Karachi",
+      country: "Pakistan",
+      price: 185000,
+      purpose: "sale",
+      bedrooms: 4,
+      bathrooms: 4,
+      areaSqm: 280,
+      categories: ["home", "family"],
+      amenities: ["Lawn", "Generator", "Parking"],
+      badges: ["New"],
+      furnished: false,
+      status: "published",
+      sellerId: seller.id,
+      agentId: seller.id,
+      agencyId: null,
+      availableSlots: [inDays(3, 10), inDays(5, 16), inDays(8, 11)],
+    },
+  });
+  await prisma.propertyImage.deleteMany({ where: { propertyId: "seller-home-1" } });
+  await prisma.propertyImage.createMany({
+    data: [
+      {
+        propertyId: "seller-home-1",
+        url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80",
+        sortOrder: 0,
+        isCover: true,
+      },
+    ],
+  });
 
   // Demo viewings are refreshed on every seed so their slots stay in the future.
-  await prisma.bookingEvent.deleteMany({ where: { bookingId: { in: ["BR-1024", "BR-1021"] } } });
-  await prisma.booking.deleteMany({ where: { id: { in: ["BR-1024", "BR-1021"] } } });
+  await prisma.bookingEvent.deleteMany({
+    where: { bookingId: { in: ["BR-1024", "BR-1021", "BR-S1", "BR-S2", "BR-S3"] } },
+  });
+  await prisma.booking.deleteMany({
+    where: { id: { in: ["BR-1024", "BR-1021", "BR-S1", "BR-S2", "BR-S3"] } },
+  });
 
   await prisma.booking.create({
     data: {
@@ -518,6 +584,79 @@ async function main() {
         create: [
           { status: "pending", actorRole: "buyer", note: "Viewing requested" },
           { status: "confirmed", actorRole: "host", note: "Ask for Amelia at reception." },
+        ],
+      },
+    },
+  });
+
+  await prisma.booking.create({
+    data: {
+      id: "BR-S1",
+      propertyId: "seller-home-1",
+      userId: guest.id,
+      name: guest.name ?? "Guest User",
+      email: guest.email ?? "guest@estate-elite.local",
+      phone: "+1 (555) 010-1000",
+      notes: "Family of four, weekday evenings if possible.",
+      status: "pending",
+      timezone: "Asia/Karachi",
+      partySize: 3,
+      slots: [inDays(3, 10)],
+      visitDate: inDays(3, 10),
+      buyerAcceptedAt: new Date(),
+      events: {
+        create: { status: "pending", actorRole: "buyer", note: "Picked an owner-posted time" },
+      },
+    },
+  });
+
+  await prisma.booking.create({
+    data: {
+      id: "BR-S2",
+      propertyId: "seller-home-1",
+      userId: guest.id,
+      name: guest.name ?? "Guest User",
+      email: guest.email ?? "guest@estate-elite.local",
+      phone: "+1 (555) 010-1000",
+      notes: "Both sides already agreed this window.",
+      status: "pending_admin",
+      timezone: "Asia/Karachi",
+      partySize: 2,
+      slots: [inDays(5, 16)],
+      visitDate: inDays(5, 16),
+      buyerAcceptedAt: new Date(),
+      sellerAcceptedAt: new Date(),
+      events: {
+        create: [
+          { status: "pending", actorRole: "buyer", note: "Picked an owner-posted time" },
+          { status: "pending_admin", actorRole: "host", note: "Owner agreed — sent to platform" },
+        ],
+      },
+    },
+  });
+
+  await prisma.booking.create({
+    data: {
+      id: "BR-S3",
+      propertyId: "seller-home-1",
+      userId: guest.id,
+      name: guest.name ?? "Guest User",
+      email: guest.email ?? "guest@estate-elite.local",
+      phone: "+1 (555) 010-1000",
+      notes: "Platform confirmed this time and assigned a city broker.",
+      status: "confirmed",
+      timezone: "Asia/Karachi",
+      partySize: 2,
+      slots: [inDays(8, 11)],
+      visitDate: inDays(8, 11),
+      buyerAcceptedAt: new Date(),
+      sellerAcceptedAt: new Date(),
+      assignedBrokerId: broker.id,
+      events: {
+        create: [
+          { status: "pending", actorRole: "buyer", note: "Picked an owner-posted time" },
+          { status: "pending_admin", actorRole: "host", note: "Owner agreed — sent to platform" },
+          { status: "confirmed", actorRole: "admin", note: "Assigned to Omar Malik." },
         ],
       },
     },
