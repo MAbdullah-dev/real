@@ -87,37 +87,19 @@ export async function getPublicAgent(id: string) {
     const profile = await prisma.brokerProfile.findUnique({ where: { userId: id } });
     if (!profile || profile.status !== "active") return undefined;
 
-    const properties = await prisma.property.findMany({
-      where: { agentId: id, agencyId: null, sellerId: null, status: "published" },
-      include: propertyInclude,
-      orderBy: { rating: "desc" },
-    });
-
-    const [completedVisits, totalBookings] = await Promise.all([
-      prisma.booking.count({
-        where: { property: { agentId: id, agencyId: null }, status: "completed" },
-      }),
-      prisma.booking.count({ where: { property: { agentId: id, agencyId: null } } }),
-    ]);
-
-    const rated = properties.filter((property) => property.reviewCount > 0);
-    const averageRating = rated.length
-      ? rated.reduce((total, property) => total + property.rating, 0) / rated.length
-      : null;
-
     return {
       id: user.id,
       name: user.name ?? "Broker",
       image: user.image ?? "",
-      agency: profile.title ?? "Independent broker",
+      agency: profile.title ?? "Platform broker",
       phone: profile.phone ?? profile.whatsapp ?? null,
-      bio: profile.bio ?? "Independent broker connecting buyers and sellers.",
+      bio: profile.bio ?? "Platform representative for seller-owned listings.",
       verified: true,
-      listings: properties.map(toProperty),
+      listings: [],
       planName: null,
-      totalBookings,
-      completedVisits,
-      averageRating,
+      totalBookings: 0,
+      completedVisits: 0,
+      averageRating: null,
     };
   }
 

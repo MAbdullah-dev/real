@@ -7,11 +7,14 @@ import assert from "node:assert/strict";
 
 import { rateLimit } from "../src/lib/rate-limit";
 import {
+  MAX_AVAILABILITY_SLOTS,
   MAX_SLOTS,
   MIN_LEAD_HOURS,
   canHostTransition,
   formatInZone,
+  isAllowedAvailabilitySlot,
   isViewingOpen,
+  parseAvailabilitySlots,
   parseSlots,
 } from "../src/lib/viewings";
 
@@ -54,6 +57,21 @@ assert.ok(
   `more than ${MAX_SLOTS} slots must be rejected`
 );
 
+assert.ok("error" in parseAvailabilitySlots([], NOW), "seller availability cannot be empty");
+const sellerSet = Array.from({ length: MAX_SLOTS + 2 }, (_, i) => days(i + 1));
+assert.ok(
+  !("error" in parseAvailabilitySlots(sellerSet, NOW)),
+  "a seller may list more times than a buyer request"
+);
+assert.ok(
+  "error" in
+    parseAvailabilitySlots(
+      Array.from({ length: MAX_AVAILABILITY_SLOTS + 1 }, (_, i) => days(i + 1)),
+      NOW
+    ),
+  `more than ${MAX_AVAILABILITY_SLOTS} availability slots must be rejected`
+);
+
 /* State machine --------------------------------------------------------- */
 
 assert.ok(canHostTransition("pending", "confirmed"), "pending → confirmed");
@@ -66,7 +84,17 @@ assert.ok(!canHostTransition("cancelled", "confirmed"), "cancelled is terminal")
 assert.ok(!canHostTransition("declined", "completed"), "declined cannot complete");
 assert.ok(!canHostTransition("pending", "completed"), "a visit cannot complete before it happens");
 
-assert.ok(isViewingOpen("pending") && isViewingOpen("proposed") && isViewingOpen("confirmed"));
+const window = [new Date("2026-04-01T10:00:00Z")];
+assert.ok(isAllowedAvailabilitySlot(window, new Date("2026-04-01T10:00:00Z")));
+assert.ok(!isAllowedAvailabilitySlot(window, new Date("2026-04-01T11:00:00Z")));
+
+assert.ok(
+  isViewingOpen("pending") &&
+    isViewingOpen("proposed") &&
+    isViewingOpen("awaiting_admin") &&
+    isViewingOpen("admin_proposed") &&
+    isViewingOpen("confirmed")
+);
 assert.ok(
   !isViewingOpen("declined") &&
     !isViewingOpen("cancelled") &&

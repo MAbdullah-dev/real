@@ -11,7 +11,7 @@ export const ADMIN_SETTINGS = [
   {
     key: "allowBrokerSignup",
     label: "Allow broker self-signup",
-    description: "Let independent brokers register.",
+    description: "Let platform brokers register to handle seller-property buyers.",
   },
   {
     key: "allowAgencySignup",
@@ -128,13 +128,6 @@ export async function listBrokersWithStats() {
     orderBy: { createdAt: "asc" },
   });
 
-  const counts = await prisma.property.groupBy({
-    by: ["agentId"],
-    where: { agencyId: null, sellerId: null },
-    _count: { _all: true },
-  });
-  const byBroker = new Map(counts.map((row) => [row.agentId, row._count._all]));
-
   return profiles.map((profile) => ({
     id: profile.user.id,
     profileId: profile.id,
@@ -144,7 +137,6 @@ export async function listBrokersWithStats() {
     city: profile.city ?? "—",
     status: profile.status,
     statusNote: profile.statusNote,
-    listings: byBroker.get(profile.userId) ?? 0,
     submittedAt: profile.submittedAt,
   }));
 }

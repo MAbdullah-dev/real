@@ -13,10 +13,10 @@ export default async function BrokerOnboardingPage() {
     <div className="mx-auto max-w-2xl space-y-6 px-[var(--section-x)] py-16">
       <div>
         <p className="text-sm font-medium text-primary">Broker onboarding</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Set up your practice</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Set up your platform profile</h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          Independent brokers connect buyers and sellers, arrange visits, and guide the deal — without
-          an agency shell.
+          You represent the platform for seller-owned homes. You will not create listings or join an
+          agency.
         </p>
       </div>
       <BrokerProfileForm
@@ -24,7 +24,7 @@ export default async function BrokerOnboardingPage() {
           phone: profile?.phone ?? "",
           country: profile?.country ?? "PK",
           city: profile?.city ?? "",
-          title: profile?.title ?? "Independent broker",
+          title: profile?.title ?? "Platform broker",
           bio: profile?.bio ?? "",
           whatsapp: profile?.whatsapp ?? "",
         }}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import * as React from "react";
 import { toast } from "sonner";
 
+import { AvailableSlotPicker } from "@/components/viewings/available-slot-picker";
 import { SlotPicker, slotsToIso } from "@/components/viewings/slot-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,12 +27,16 @@ export function RequestViewingForm({
   propertyId,
   propertySlug,
   contactKind,
+  availableSlots = [],
 }: {
   propertyId: string;
   propertySlug: string;
   contactKind: ListingContactKind;
+  availableSlots?: string[];
 }) {
+  const sellerOwned = contactKind === "seller";
   const [slots, setSlots] = React.useState<string[]>([""]);
+  const [picked, setPicked] = React.useState(availableSlots[0] ?? "");
   const [phone, setPhone] = React.useState("");
   const [mode, setMode] = React.useState("in_person");
   const [partySize, setPartySize] = React.useState("1");
@@ -41,9 +46,13 @@ export function RequestViewingForm({
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    const iso = slotsToIso(slots);
+    const iso = sellerOwned ? (picked ? [picked] : []) : slotsToIso(slots);
     if (iso.length === 0) {
-      toast.error("Pick at least one time that works for you.");
+      toast.error(
+        sellerOwned
+          ? "Pick one of the owner's available times."
+          : "Pick at least one time that works for you."
+      );
       return;
     }
 
@@ -72,9 +81,9 @@ export function RequestViewingForm({
         <CheckCircle2 className="h-12 w-12 text-primary" aria-hidden />
         <h2 className="mt-4 text-xl font-semibold">Request sent</h2>
         <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          The {CONTACT_KIND_LABELS[contactKind].toLowerCase()} has your preferred times. You
-          will be notified when they confirm or offer an alternative, and you can change or
-          cancel the request from your dashboard.
+          {sellerOwned
+            ? "The owner will approve this time, then the platform confirms it. You will be notified at each step."
+            : `The ${CONTACT_KIND_LABELS[contactKind].toLowerCase()} has your preferred times and will reply.`}
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-2">
           <Button asChild className="rounded-full">
@@ -91,8 +100,19 @@ export function RequestViewingForm({
   return (
     <form className="space-y-6" onSubmit={submit}>
       <fieldset className="space-y-3" disabled={pending}>
-        <legend className="text-sm font-semibold">When works for you?</legend>
-        <SlotPicker value={slots} onChange={setSlots} disabled={pending} />
+        <legend className="text-sm font-semibold">
+          {sellerOwned ? "Pick one of the owner's times" : "When works for you?"}
+        </legend>
+        {sellerOwned ? (
+          <AvailableSlotPicker
+            slots={availableSlots}
+            value={picked}
+            onChange={setPicked}
+            disabled={pending}
+          />
+        ) : (
+          <SlotPicker value={slots} onChange={setSlots} disabled={pending} />
+        )}
       </fieldset>
 
       <div className="grid gap-4 sm:grid-cols-2">

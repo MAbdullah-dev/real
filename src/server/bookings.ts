@@ -76,8 +76,9 @@ export function listUserVisits(userId: string) {
 }
 
 /**
- * Listings a console user is entitled to act on. Brokers keep listings they
- * manage even when a seller owns the asset, so both parties stay in the loop.
+ * Listings a console user may handle.
+ * Brokers only see seller-owned listings (platform buyer assistance).
+ * Agencies only see their own listings. Brokers never receive agency work.
  */
 export async function hostPropertyScope(
   userId: string,
@@ -88,7 +89,7 @@ export async function hostPropertyScope(
     const membership = await getMembership(userId);
     return membership ? { agencyId: membership.agencyId } : null;
   }
-  if (role === "BROKER") return { agentId: userId, agencyId: null };
+  if (role === "BROKER") return { sellerId: { not: null }, agencyId: null };
   if (role === "SELLER") return { sellerId: userId };
   return null;
 }
@@ -111,6 +112,12 @@ export async function countHostViewings(userId: string, role: Role, status?: Boo
   const property = await hostPropertyScope(userId, role);
   if (!property) return 0;
   return prisma.booking.count({ where: { property, ...(status ? { status } : {}) } });
+}
+
+export async function countHostEnquiries(userId: string, role: Role, status?: "open" | "replied" | "closed") {
+  const property = await hostPropertyScope(userId, role);
+  if (!property) return 0;
+  return prisma.lead.count({ where: { property, ...(status ? { status } : {}) } });
 }
 
 export function listAllBookings(take = 100) {

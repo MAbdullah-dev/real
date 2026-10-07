@@ -87,7 +87,7 @@ export function BrokerProfileForm({
           </div>
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
-            <Input id="title" placeholder="Independent broker" {...form.register("title")} />
+            <Input id="title" placeholder="Platform broker" {...form.register("title")} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="bio">About your work</Label>

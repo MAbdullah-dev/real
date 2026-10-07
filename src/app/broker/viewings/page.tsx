@@ -11,11 +11,11 @@ export default function BrokerViewingsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Viewings</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Arrange meetups between buyers and owners on the listings you hold.
+          Seller-owned viewing requests. Agency listings never appear here.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl" />}>
-        <ViewingInbox emptyHref="/broker/properties" />
+        <ViewingInbox emptyHref="/broker" />
       </Suspense>
     </div>
   );

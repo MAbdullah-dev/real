@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { countHostViewings } from "@/server/bookings";
-import { getBrokerListingAllowance, requireBroker } from "@/server/broker";
-import { listBrokerProperties } from "@/server/properties";
+import { countHostEnquiries, countHostViewings } from "@/server/bookings";
+import { requireBroker } from "@/server/broker";
+import { listPlatformSellerProperties } from "@/server/properties";
 
 async function BrokerOverview() {
   const { session, profile, isAdmin } = await requireBroker();
@@ -15,10 +14,10 @@ async function BrokerOverview() {
     return <p className="text-sm text-muted-foreground">Complete onboarding to open the console.</p>;
   }
 
-  const [listings, allowance, pending] = await Promise.all([
-    listBrokerProperties(session.user.id),
-    getBrokerListingAllowance(session.user.id),
+  const [pendingViewings, openEnquiries, sellerListings] = await Promise.all([
     countHostViewings(session.user.id, session.user.role, "pending"),
+    countHostEnquiries(session.user.id, session.user.role, "open"),
+    listPlatformSellerProperties(),
   ]);
 
   return (
@@ -29,7 +28,7 @@ async function BrokerOverview() {
             Broker status:{" "}
             <span className="font-medium capitalize">{profile.status.replaceAll("_", " ")}</span>
             {profile.status === "pending_review"
-              ? " — draft listings are allowed; live publish waits for approval."
+              ? " — you can review assigned seller-property work after approval."
               : null}
             {profile.statusNote ? ` ${profile.statusNote}` : null}
           </CardContent>
@@ -38,9 +37,9 @@ async function BrokerOverview() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          { label: "Listings", value: listings.length },
-          { label: "Pending viewings", value: pending },
-          { label: "Slots used", value: `${allowance.used}/${allowance.limit}` },
+          { label: "Seller listings", value: sellerListings.length },
+          { label: "Pending viewings", value: pendingViewings },
+          { label: "Open enquiries", value: openEnquiries },
         ].map((card) => (
           <Card key={card.label} className="rounded-3xl">
             <CardHeader className="pb-2">
@@ -55,28 +54,26 @@ async function BrokerOverview() {
 
       <Card className="rounded-3xl">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Your work</CardTitle>
-          <Button asChild size="sm" className="rounded-full">
-            <Link href="/broker/properties/new">Add listing</Link>
+          <CardTitle>Seller-property work</CardTitle>
+          <Button asChild size="sm" variant="outline" className="rounded-full">
+            <Link href="/broker/viewings">Open viewings</Link>
           </Button>
         </CardHeader>
         <CardContent className="space-y-3">
-          {listings.length === 0 ? (
+          {sellerListings.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              List properties you represent, then manage viewings with buyers and sellers.
+              When a buyer asks about a seller-owned home, it appears here. Agency listings stay
+              with the agency.
             </p>
           ) : (
-            listings.slice(0, 5).map((row) => (
+            sellerListings.slice(0, 5).map((row) => (
               <div key={row.property.id} className="flex items-center justify-between gap-3">
-                <Link
-                  href={`/broker/properties/${row.property.id}/edit`}
-                  className="font-medium hover:underline"
-                >
-                  {row.property.title}
-                </Link>
-                <Badge variant="outline" className="capitalize">
-                  {row.status.replaceAll("_", " ")}
-                </Badge>
+                <div>
+                  <p className="font-medium">{row.property.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {row.property.city} · {row.leads} enquiries · {row.bookings} viewings
+                  </p>
+                </div>
               </div>
             ))
           )}
@@ -92,7 +89,7 @@ export default function BrokerHomePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Broker overview</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Your own book of business — listings, viewings, and client connections.
+          You represent the platform for seller-owned properties. You do not create or own listings.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl" />}>

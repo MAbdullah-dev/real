@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 
+import { AvailableSlotPicker } from "@/components/viewings/available-slot-picker";
 import { SlotPicker, slotsToIso } from "@/components/viewings/slot-picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,15 +25,20 @@ import { buyerUpdateViewingAction } from "@/server/actions/bookings";
 export function BuyerViewingActions({
   id,
   status,
+  availableSlots = [],
+  sellerOwned = false,
 }: {
   id: string;
   status: BookingStatus;
+  availableSlots?: string[];
+  sellerOwned?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   const [rescheduleOpen, setRescheduleOpen] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
   const [slots, setSlots] = React.useState<string[]>([""]);
+  const [picked, setPicked] = React.useState(availableSlots[0] ?? "");
   const [reason, setReason] = React.useState("");
 
   function run(
@@ -56,12 +62,17 @@ export function BuyerViewingActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {status === "proposed" ? (
+      {status === "proposed" || status === "admin_proposed" ? (
         <Button
           size="sm"
           className="rounded-full"
           disabled={pending}
-          onClick={() => run({ id, intent: "accept" }, "Viewing confirmed")}
+          onClick={() =>
+            run(
+              { id, intent: "accept" },
+              status === "admin_proposed" ? "You accepted the platform time" : "Time accepted"
+            )
+          }
         >
           {pending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
           Accept this time
@@ -85,12 +96,21 @@ export function BuyerViewingActions({
                 listing contact.
               </DialogDescription>
             </DialogHeader>
-            <SlotPicker value={slots} onChange={setSlots} disabled={pending} />
+            {sellerOwned ? (
+              <AvailableSlotPicker
+                slots={availableSlots}
+                value={picked}
+                onChange={setPicked}
+                disabled={pending}
+              />
+            ) : (
+              <SlotPicker value={slots} onChange={setSlots} disabled={pending} />
+            )}
             <Button
               className="w-full rounded-full"
               disabled={pending}
               onClick={() => {
-                const iso = slotsToIso(slots);
+                const iso = sellerOwned ? (picked ? [picked] : []) : slotsToIso(slots);
                 if (iso.length === 0) {
                   toast.error("Pick at least one time.");
                   return;

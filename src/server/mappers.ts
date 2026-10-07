@@ -7,6 +7,7 @@ import type {
   SellerProfile,
   User,
 } from "@prisma/client";
+import { sanitizeMarketingBadges } from "@/lib/listing-contact";
 import type {
   ListingContact,
   Property,
@@ -24,15 +25,15 @@ export type PropertyWithAgent = PropertyRow & {
 };
 
 /**
- * Ownership shape decides who the buyer talks to:
- * an agency listing routes to the firm, a seller-managed listing to the owner,
- * and anything else to the broker holding the mandate.
+ * Ownership decides the buyer-facing contact.
+ * Agency listings go to the agency. Seller listings stay owner-branded
+ * but the platform handles the conversation. Brokers are never owners.
  */
 export function toListingContact(row: PropertyWithAgent): ListingContact {
   const name = row.agent.name ?? "Listing contact";
   const avatar = row.agent.image ?? "";
 
-  if (row.agency) {
+  if (row.agencyId && row.agency) {
     return {
       kind: "agency",
       userId: row.agentId,
@@ -45,31 +46,24 @@ export function toListingContact(row: PropertyWithAgent): ListingContact {
     };
   }
 
-  if (row.sellerId && row.sellerId === row.agentId) {
+  if (row.sellerId) {
     return {
       kind: "seller",
-      userId: row.agentId,
+      userId: row.sellerId,
       name,
       avatar,
-      org: "Property owner",
-      phone: row.agent.sellerProfile?.phone ?? undefined,
+      org: "Verified owner · platform-handled",
       verified: row.agent.sellerProfile?.status === "active",
     };
   }
 
-  const broker = row.agent.brokerProfile;
   return {
-    kind: "broker",
+    kind: "seller",
     userId: row.agentId,
-    name,
+    name: "Platform team",
     avatar,
-    org: row.sellerId
-      ? "Broker representing the owner"
-      : (broker?.title ?? "Independent broker"),
-    phone: broker?.phone ?? undefined,
-    whatsapp: broker?.whatsapp ?? undefined,
-    verified: broker?.status === "active",
-    profileHref: broker ? `/agents/${row.agentId}` : undefined,
+    org: "This listing has no assigned owner",
+    verified: false,
   };
 }
 
@@ -100,7 +94,10 @@ export function toProperty(row: PropertyWithAgent): Property {
     furnished: row.furnished,
     agentId: row.agentId,
     contact: toListingContact(row),
-    badges: row.badges.length ? row.badges : undefined,
+    badges: (() => {
+      const badges = sanitizeMarketingBadges(row.badges);
+      return badges.length ? badges : undefined;
+    })(),
     videoUrl: row.videoUrl ?? undefined,
     coordinates:
       row.lat != null && row.lng != null ? { lat: row.lat, lng: row.lng } : undefined,

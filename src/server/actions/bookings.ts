@@ -17,6 +17,7 @@ import {
 import { recordPropertyLead } from "@/server/analytics";
 import { hostPropertyScope } from "@/server/bookings";
 import { requireAuth } from "@/server/auth";
+import { usersForListingRequests } from "@/server/listing-ownership";
 import { createNotification } from "@/server/notifications";
 import { hostViewingsHref } from "@/server/roles";
 
@@ -44,15 +45,12 @@ type NotifiableProperty = {
   title: string;
   agentId: string;
   sellerId: string | null;
+  agencyId: string | null;
 };
 
-/** The manager always hears about it; a represented owner does too. */
+/** Agency members for agency listings; seller + platform brokers for seller listings. */
 async function notifyHosts(property: NotifiableProperty, title: string, body: string) {
-  const ids = [property.agentId, ...(property.sellerId ? [property.sellerId] : [])];
-  const users = await prisma.user.findMany({
-    where: { id: { in: [...new Set(ids)] } },
-    select: { id: true, role: true },
-  });
+  const users = await usersForListingRequests(property);
   await Promise.all(
     users.map((user) =>
       createNotification(user.id, title, body, hostViewingsHref(user.role))
@@ -85,6 +83,7 @@ export async function requestViewingAction(
       status: true,
       agentId: true,
       sellerId: true,
+      agencyId: true,
     },
   });
   if (!property || property.status !== "published") {
@@ -172,7 +171,7 @@ export async function hostUpdateViewingAction(
   const booking = await prisma.booking.findFirst({
     where: { id: parsed.data.id, property: scope as Prisma.PropertyWhereInput },
     include: {
-      property: { select: { id: true, slug: true, title: true, agentId: true, sellerId: true } },
+      property: { select: { id: true, slug: true, title: true, agentId: true, sellerId: true, agencyId: true } },
     },
   });
   if (!booking) {
@@ -256,7 +255,7 @@ export async function buyerUpdateViewingAction(
   const booking = await prisma.booking.findFirst({
     where: { id: parsed.data.id, userId: session.user.id },
     include: {
-      property: { select: { id: true, slug: true, title: true, agentId: true, sellerId: true } },
+      property: { select: { id: true, slug: true, title: true, agentId: true, sellerId: true, agencyId: true } },
     },
   });
   if (!booking) return { error: "That viewing no longer exists." };

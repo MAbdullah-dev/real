@@ -14,11 +14,11 @@ export default function ForBrokersPage() {
             Estate Elite
           </p>
           <h1 className="mt-6 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Work as an independent broker
+            Join the platform broker team
           </h1>
           <p className="mt-4 text-base text-muted-foreground sm:text-lg">
-            Connect buyers and sellers, arrange visits, and guide the deal — your own pipeline, not an
-            agency account.
+            Help buyers of seller-owned homes with questions, viewings, and meetups. You do not
+            list properties, and you do not work for an agency on this platform.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="rounded-full">

@@ -49,7 +49,9 @@ export const propertyInputSchema = z.object({
     .or(z.literal("").transform(() => undefined)),
   categories: z.array(z.enum(PROPERTY_CATEGORIES)).min(1, "Pick at least one category."),
   amenities: csv,
-  badges: csv,
+  badges: csv.transform((items) =>
+    items.filter((badge) => badge.trim().toLowerCase() !== "verified")
+  ),
   images: z
     .array(z.string().trim().url())
     .min(1, "Add at least one image.")

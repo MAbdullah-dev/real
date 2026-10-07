@@ -23,7 +23,7 @@ export type ListingContactKind = "agency" | "broker" | "seller";
 /** Who a buyer actually reaches for a listing, resolved from the ownership shape. */
 export interface ListingContact {
   kind: ListingContactKind;
-  /** The user who manages the listing and receives requests. */
+  /** Listing identity user (seller or agency member). Not a broker owner. */
   userId: string;
   name: string;
   avatar: string;

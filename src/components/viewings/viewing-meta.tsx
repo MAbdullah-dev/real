@@ -30,14 +30,25 @@ export function ViewingMeta({
   mode: VisitMode;
   partySize: number;
 }) {
-  const showAgreed = visitDate && (status === "confirmed" || status === "proposed" || status === "completed");
+  const showAgreed =
+    visitDate &&
+    (status === "confirmed" ||
+      status === "proposed" ||
+      status === "awaiting_admin" ||
+      status === "admin_proposed" ||
+      status === "completed" ||
+      status === "pending");
 
   return (
     <div className="space-y-3 text-sm">
       {showAgreed ? (
         <p className="flex flex-wrap items-center gap-2 font-medium">
           <CalendarCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-          {status === "proposed" ? "Offered time:" : "Scheduled:"}{" "}
+          {status === "proposed" || status === "admin_proposed"
+            ? "Offered time:"
+            : status === "pending"
+              ? "Requested time:"
+              : "Scheduled:"}{" "}
           <span className="tabular-nums">{formatInZone(visitDate, timezone)}</span>
         </p>
       ) : null}

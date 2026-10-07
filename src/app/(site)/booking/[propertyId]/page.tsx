@@ -56,8 +56,10 @@ async function ViewingRequest({
   return (
     <>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        {CONTACT_KIND_BLURBS[contact.kind]} Offer up to three windows that suit you; you will
-        get a notification as soon as they reply, and you can reschedule or cancel any time.
+        {CONTACT_KIND_BLURBS[contact.kind]}{" "}
+        {contact.kind === "seller"
+          ? "Pick one of the owner's published times. They approve it, then the platform confirms."
+          : "Offer up to three windows that suit you; you will get a notification as soon as they reply, and you can reschedule or cancel any time."}
       </p>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_minmax(0,340px)] lg:items-start">
@@ -115,6 +117,7 @@ async function RequestPanel({ property }: { property: Property }) {
         propertyId={property.id}
         propertySlug={property.slug}
         contactKind={property.contact.kind}
+        availableSlots={property.availableSlots ?? []}
       />
     );
   }

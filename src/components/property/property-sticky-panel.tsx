@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   CONTACT_KIND_BLURBS,
   CONTACT_KIND_LABELS,
+  CONTACT_VERIFIED_LABELS,
   telHref,
   whatsappHref,
 } from "@/lib/listing-contact";
@@ -143,7 +144,7 @@ function ContactIdentity({ property }: { property: Property }) {
         {contact.verified ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs">
             <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-hidden />
-            Verified {CONTACT_KIND_LABELS[contact.kind].toLowerCase()}
+            {CONTACT_VERIFIED_LABELS[contact.kind]}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">

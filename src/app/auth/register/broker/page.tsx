@@ -36,8 +36,8 @@ export default function BrokerRegisterPage() {
       <CardHeader>
         <CardTitle className="text-2xl text-primary-foreground">Create a broker account</CardTitle>
         <CardDescription className="text-primary-foreground/70">
-          Independent brokers — your own pipeline between buyers and sellers. Agencies register
-          separately.
+          Join the platform team that helps buyers of seller-owned homes. Agencies register
+          separately and keep their own clients.
         </CardDescription>
       </CardHeader>
       <CardContent>

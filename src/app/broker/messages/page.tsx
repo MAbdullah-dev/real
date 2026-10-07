@@ -11,7 +11,7 @@ export default function BrokerEnquiriesPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Enquiries</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Buyer questions on the listings you hold. Replying keeps the lead warm.
+          Buyer questions on seller-owned homes. Agency enquiries go to the agency, not this inbox.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl" />}>

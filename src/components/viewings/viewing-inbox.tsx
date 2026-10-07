@@ -19,6 +19,12 @@ import { listHostViewings } from "@/server/bookings";
 export async function ViewingInbox({ emptyHref }: { emptyHref?: string }) {
   const session = await requireAuth();
   const viewings = await listHostViewings(session.user.id, session.user.role);
+  const variant =
+    session.user.role === "BROKER"
+      ? "broker"
+      : session.user.role === "SELLER"
+        ? "seller"
+        : "agency";
 
   if (viewings.length === 0) {
     return (
@@ -46,7 +52,9 @@ export async function ViewingInbox({ emptyHref }: { emptyHref?: string }) {
             Nothing outstanding — every request has been answered.
           </p>
         ) : (
-          open.map((viewing) => <HostViewingCard key={viewing.id} viewing={viewing} />)
+          open.map((viewing) => (
+            <HostViewingCard key={viewing.id} viewing={viewing} variant={variant} />
+          ))
         )}
       </section>
 
@@ -56,7 +64,7 @@ export async function ViewingInbox({ emptyHref }: { emptyHref?: string }) {
             History <span className="font-normal text-muted-foreground">({closed.length})</span>
           </h2>
           {closed.map((viewing) => (
-            <HostViewingCard key={viewing.id} viewing={viewing} />
+            <HostViewingCard key={viewing.id} viewing={viewing} variant={variant} />
           ))}
         </section>
       ) : null}
@@ -66,7 +74,13 @@ export async function ViewingInbox({ emptyHref }: { emptyHref?: string }) {
 
 type Viewing = Awaited<ReturnType<typeof listHostViewings>>[number];
 
-function HostViewingCard({ viewing }: { viewing: Viewing }) {
+function HostViewingCard({
+  viewing,
+  variant,
+}: {
+  viewing: Viewing;
+  variant: "agency" | "seller" | "broker";
+}) {
   return (
     <Card className="rounded-3xl">
       <CardContent className="space-y-4 p-5 sm:p-6">
@@ -124,7 +138,13 @@ function HostViewingCard({ viewing }: { viewing: Viewing }) {
               status={viewing.status}
               slots={viewing.slots.map((slot) => slot.toISOString())}
               visitDate={viewing.visitDate?.toISOString() ?? null}
+              variant={variant}
             />
+            {viewing.assignedBroker ? (
+              <p className="text-xs text-muted-foreground">
+                Assigned broker: {viewing.assignedBroker.name ?? viewing.assignedBroker.email}
+              </p>
+            ) : null}
           </>
         ) : null}
 

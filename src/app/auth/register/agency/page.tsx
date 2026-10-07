@@ -36,7 +36,7 @@ export default function AgencyRegisterPage() {
       <CardHeader>
         <CardTitle className="text-2xl text-primary-foreground">Create an agency account</CardTitle>
         <CardDescription className="text-primary-foreground/70">
-          Agency profile, shared inventory, and billing. Independent brokers use a different signup.
+          Agency profile, shared inventory, and billing. Platform brokers use a different signup.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -99,7 +99,7 @@ export default function AgencyRegisterPage() {
           </Button>
         </form>
         <p className="mt-6 text-center text-sm text-primary-foreground/80">
-          Independent broker?{" "}
+          Platform broker?{" "}
           <Link href="/auth/register/broker" className="underline">
             Broker signup
           </Link>

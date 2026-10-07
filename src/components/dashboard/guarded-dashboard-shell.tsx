@@ -59,13 +59,6 @@ async function DashboardAuth({
     if (!isAdmin && access === "onboarding") {
       redirect("/auth/onboarding/broker");
     }
-    if (isAdmin || access === "full" || access === "readonly") {
-      headerAction = (
-        <Button asChild size="sm" className="rounded-full">
-          <Link href="/broker/properties/new">Add property</Link>
-        </Button>
-      );
-    }
   }
 
   if (roles.includes("SELLER") && title === "Seller console") {

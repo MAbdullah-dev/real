@@ -117,7 +117,7 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
-/** Independent broker — own pipeline, no agency shell. */
+/** Platform-company broker. Handles buyers on seller-owned listings only. Not an agency employee. */
 model BrokerProfile {
   id             String      @id @default(cuid())
   userId         String      @unique
@@ -288,15 +288,18 @@ model Property {
   lng         Float?
   status      PropertyStatus  @default(draft)
 
-  /** Owner of the asset (seller). Null when an agency lists on behalf of an undisclosed owner. */
+  /** Seller-owned listing. Null when the agency owns the listing. */
   sellerId String?
   seller   User?   @relation("OwnedProperties", fields: [sellerId], references: [id])
 
-  /** Representing agency. Null for pure seller (FSBO) listings. */
+  /** Agency-owned listing. Null for seller-owned listings. Brokers never own listings. */
   agencyId String?
   agency   Agency? @relation(fields: [agencyId], references: [id])
 
-  /** Listing manager: broker user or the seller themselves. */
+  /**
+   * Listing contact user for admin/history: the seller or the agency member who created it.
+   * Not ownership. Brokers are never stored here as owners.
+   */
   agentId String
   agent   User   @relation("ManagedProperties", fields: [agentId], references: [id])
 

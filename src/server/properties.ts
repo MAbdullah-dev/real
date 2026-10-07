@@ -173,10 +173,10 @@ export async function listSellerProperties(sellerId: string) {
   return listAgentProperties({ sellerId });
 }
 
-/** Independent broker inventory (no agency, no seller ownership). */
-export async function listBrokerProperties(brokerUserId: string) {
+/** Seller-owned published listings the platform broker desk can handle. */
+export async function listPlatformSellerProperties() {
   const rows = await prisma.property.findMany({
-    where: { agentId: brokerUserId, agencyId: null, sellerId: null },
+    where: { sellerId: { not: null }, agencyId: null, status: "published" },
     include: {
       ...propertyInclude,
       _count: { select: { bookings: true, leads: true } },
@@ -186,7 +186,7 @@ export async function listBrokerProperties(brokerUserId: string) {
   return rows.map((row) => ({
     property: toProperty(row),
     status: row.status,
-    agentName: row.agent.name ?? "Unassigned",
+    agentName: row.agent.name ?? "Owner",
     bookings: row._count.bookings,
     leads: row._count.leads,
     updatedAt: row.updatedAt,

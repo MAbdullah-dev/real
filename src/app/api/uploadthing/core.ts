@@ -2,6 +2,7 @@ import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
 
 import { auth } from "@/auth";
+import { canUploadPropertyImage } from "@/server/property-permissions";
 
 const f = createUploadthing();
 
@@ -12,8 +13,8 @@ export const uploadRouter = {
     .middleware(async () => {
       const session = await auth();
       const role = session?.user?.role;
-      if (!session?.user?.id || (role !== "BROKER" && role !== "AGENCY" && role !== "SELLER" && role !== "ADMIN")) {
-        throw new UploadThingError("Only sellers, brokers, and agencies can upload listing photos.");
+      if (!session?.user?.id || !role || !canUploadPropertyImage(role)) {
+        throw new UploadThingError("Only sellers and agencies can upload listing photos.");
       }
       return { userId: session.user.id };
     })

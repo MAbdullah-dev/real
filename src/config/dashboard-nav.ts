@@ -25,9 +25,8 @@ export const agencyDashboardNav: DashboardNavItem[] = [
 
 export const brokerDashboardNav: DashboardNavItem[] = [
   { href: "/broker", label: "Overview" },
-  { href: "/broker/properties", label: "My listings", section: "Work" },
-  { href: "/broker/viewings", label: "Viewings", section: "Work" },
-  { href: "/broker/messages", label: "Enquiries", section: "Work" },
+  { href: "/broker/viewings", label: "Seller viewings", section: "Work" },
+  { href: "/broker/messages", label: "Seller enquiries", section: "Work" },
   { href: "/broker/profile", label: "Broker profile", section: "Account" },
 ];
 

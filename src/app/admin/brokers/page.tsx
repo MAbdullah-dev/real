@@ -29,7 +29,7 @@ async function BrokersTable() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                {broker.listings} listing{broker.listings === 1 ? "" : "s"}
+                Platform broker
                 {broker.submittedAt
                   ? ` · submitted ${broker.submittedAt.toLocaleDateString()}`
                   : ""}
@@ -52,7 +52,7 @@ export default function AdminBrokersPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Brokers</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Independent brokers — separate from agency firms.
+          Platform brokers handle buyers on seller-owned listings. They do not belong to agencies.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 w-full rounded-3xl" />}>

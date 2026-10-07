@@ -38,7 +38,7 @@ export const MOCK_PROPERTIES: SeedProperty[] = [
     agentId: "a1",
     agentName: "Amelia Laurent",
     agentAvatar: imgs("photo-1494790108377-be9c29b29330"),
-    badges: ["Luxury", "Verified"],
+    badges: ["Luxury", "Featured"],
     coordinates: { lat: 25.0772, lng: 55.1398 },
   },
   {

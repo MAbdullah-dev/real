@@ -9,6 +9,7 @@ import { rateLimit, retryMessage } from "@/lib/rate-limit";
 import { recordPropertyLead } from "@/server/analytics";
 import { hostPropertyScope } from "@/server/bookings";
 import { requireAuth } from "@/server/auth";
+import { usersForListingRequests } from "@/server/listing-ownership";
 import { createNotification } from "@/server/notifications";
 import { hostEnquiriesHref } from "@/server/roles";
 
@@ -48,12 +49,15 @@ export async function createLeadAction(
 
   const property = await prisma.property.findUnique({
     where: { id: values.propertyId },
-    select: { id: true, title: true, status: true, agentId: true, sellerId: true },
+    select: { id: true, title: true, status: true, agentId: true, sellerId: true, agencyId: true },
   });
   if (!property || property.status !== "published") {
     return { error: "That listing is no longer available." };
   }
-  if (session?.user?.id && property.agentId === session.user.id) {
+  if (
+    session?.user?.id &&
+    (property.agentId === session.user.id || property.sellerId === session.user.id)
+  ) {
     return { error: "This is your own listing." };
   }
 
@@ -70,10 +74,7 @@ export async function createLeadAction(
     select: { id: true },
   });
 
-  const hosts = await prisma.user.findMany({
-    where: { id: { in: [...new Set([property.agentId, property.sellerId].filter(Boolean) as string[])] } },
-    select: { id: true, role: true },
-  });
+  const hosts = await usersForListingRequests(property);
 
   await Promise.all([
     recordPropertyLead(property.id),
@@ -147,18 +148,7 @@ export async function replyToLeadAction(
   ]);
 
   if (fromBuyer) {
-    const hosts = await prisma.user.findMany({
-      where: {
-        id: {
-          in: [
-            ...new Set(
-              [lead.property.agentId, lead.property.sellerId].filter(Boolean) as string[]
-            ),
-          ],
-        },
-      },
-      select: { id: true, role: true },
-    });
+    const hosts = await usersForListingRequests(lead.property);
     await Promise.all(
       hosts.map((host) =>
         createNotification(

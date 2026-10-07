@@ -45,7 +45,7 @@ async function NewSellerPropertyContent() {
         mode="create"
         variant="seller"
         defaultValues={emptyPropertyForm}
-        canPublish={isAdmin || profile?.status === "active"}
+        canPublish={isAdmin}
         uploadsEnabled={uploadsConfigured}
       />
     </>
@@ -58,7 +58,7 @@ export default function NewSellerPropertyPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">List your property</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          You own this listing. Buyers contact you directly after it is approved.
+          You own this listing. After approval, buyers reach the platform team, who handle questions and viewings.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-96 w-full rounded-3xl" />}>

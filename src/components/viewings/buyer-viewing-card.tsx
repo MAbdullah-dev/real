@@ -66,7 +66,12 @@ export function BuyerViewingCard({ viewing }: { viewing: ViewingRow }) {
           ) : null}
 
           <div className="flex flex-wrap items-center gap-3">
-            <BuyerViewingActions id={viewing.id} status={viewing.status} />
+            <BuyerViewingActions
+              id={viewing.id}
+              status={viewing.status}
+              availableSlots={viewing.property.availableSlots.map((slot) => slot.toISOString())}
+              sellerOwned={Boolean(viewing.property.sellerId && !viewing.property.agencyId)}
+            />
             <Link
               href={`/dashboard/viewings/${viewing.id}`}
               className="text-xs font-medium text-primary hover:underline"

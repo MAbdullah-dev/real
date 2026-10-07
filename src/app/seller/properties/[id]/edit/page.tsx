@@ -19,7 +19,7 @@ async function EditSellerPropertyContent({ id }: { id: string }) {
       variant="seller"
       propertyId={property.id}
       defaultValues={property.values}
-      canPublish={isAdmin || profile?.status === "active"}
+      canPublish={isAdmin}
       uploadsEnabled={uploadsConfigured}
     />
   );

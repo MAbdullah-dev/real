@@ -170,7 +170,7 @@ export default function AgentOverviewPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Agent overview</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Agency overview</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           What needs a reply, then performance and plan usage.
         </p>

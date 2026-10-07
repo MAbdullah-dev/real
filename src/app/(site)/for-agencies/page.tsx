@@ -52,7 +52,7 @@ export default async function ForAgenciesPage() {
           </div>
         </div>
         <p className="mx-auto mt-10 max-w-5xl text-sm text-muted-foreground">
-          Independent broker?{" "}
+          Platform broker?{" "}
           <Link href="/for-brokers" className="font-medium text-foreground underline">
             Broker signup
           </Link>

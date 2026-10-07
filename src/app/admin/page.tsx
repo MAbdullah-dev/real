@@ -16,7 +16,7 @@ async function CommandCenter() {
 
   const cards = [
     { label: "Users", value: kpis.users.toLocaleString("en-US") },
-    { label: "Agents", value: kpis.agents.toLocaleString("en-US") },
+    { label: "Agencies", value: kpis.agencies.toLocaleString("en-US") },
     { label: "Live listings", value: kpis.properties.toLocaleString("en-US") },
     { label: "MRR", value: `$${kpis.mrr.toLocaleString("en-US")}` },
   ];

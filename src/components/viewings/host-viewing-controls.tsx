@@ -38,12 +38,14 @@ export function HostViewingControls({
   status,
   slots,
   visitDate,
+  variant = "agency",
 }: {
   id: string;
   status: BookingStatus;
   /** Buyer-preferred times as ISO strings. */
   slots: string[];
   visitDate: string | null;
+  variant?: "agency" | "seller" | "broker";
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -72,7 +74,16 @@ export function HostViewingControls({
     });
   }
 
-  const canSchedule = status === "pending" || status === "proposed" || status === "confirmed";
+  const canSchedule =
+    variant !== "broker" &&
+    (status === "pending" ||
+      status === "proposed" ||
+      status === "confirmed" ||
+      status === "awaiting_admin" ||
+      status === "admin_proposed");
+  const sellerApprove =
+    variant === "seller" && (status === "pending" || status === "proposed");
+  const sellerAcceptAdmin = variant === "seller" && status === "admin_proposed";
   const pastDue = Boolean(visitDate && new Date(visitDate) <= new Date());
 
   return (
@@ -135,7 +146,7 @@ export function HostViewingControls({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        {status === "pending" || status === "proposed" ? (
+        {sellerApprove || (variant === "agency" && (status === "pending" || status === "proposed")) ? (
           <Button
             size="sm"
             className="rounded-full"
@@ -143,11 +154,23 @@ export function HostViewingControls({
             onClick={() => run("confirmed", { withTime: true })}
           >
             {pending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-            Confirm
+            {sellerApprove ? "Approve for platform" : "Confirm"}
           </Button>
         ) : null}
 
-        {canSchedule ? (
+        {sellerAcceptAdmin ? (
+          <Button
+            size="sm"
+            className="rounded-full"
+            disabled={pending}
+            onClick={() => run("confirmed")}
+          >
+            {pending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+            Accept platform time
+          </Button>
+        ) : null}
+
+        {canSchedule && status !== "admin_proposed" ? (
           <Button
             size="sm"
             variant="outline"

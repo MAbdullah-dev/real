@@ -24,10 +24,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  createBrokerPropertyAction,
   createPropertyAction,
   createSellerPropertyAction,
-  updateBrokerPropertyAction,
   updatePropertyAction,
   updateSellerPropertyAction,
 } from "@/server/actions/properties";
@@ -91,7 +89,7 @@ export function PropertyForm({
   defaultValues: PropertyFormValues;
   canPublish: boolean;
   uploadsEnabled: boolean;
-  variant?: "agency" | "broker" | "seller";
+  variant?: "agency" | "seller";
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -109,14 +107,10 @@ export function PropertyForm({
         mode === "create"
           ? variant === "seller"
             ? await createSellerPropertyAction(payload)
-            : variant === "broker"
-              ? await createBrokerPropertyAction(payload)
-              : await createPropertyAction(payload)
+            : await createPropertyAction(payload)
           : variant === "seller"
             ? await updateSellerPropertyAction(propertyId!, payload)
-            : variant === "broker"
-              ? await updateBrokerPropertyAction(propertyId!, payload)
-              : await updatePropertyAction(propertyId!, payload);
+            : await updatePropertyAction(propertyId!, payload);
 
       if (result?.error) {
         toast.error(result.error);
@@ -281,7 +275,8 @@ export function PropertyForm({
             <Input placeholder="Pool, Gym, Concierge" {...form.register("amenities")} />
           </Field>
           <Field label="Badges (comma separated)" error={errors.badges?.message}>
-            <Input placeholder="New, Exclusive" {...form.register("badges")} />
+            <Input placeholder="New, Exclusive, Luxury" {...form.register("badges")} />
+            <p className="text-xs text-muted-foreground">Do not enter Verified — that comes from account approval.</p>
           </Field>
         </CardContent>
       </Card>

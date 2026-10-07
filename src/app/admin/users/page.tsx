@@ -37,8 +37,8 @@ async function UsersTable({ query }: { query?: string }) {
           <TableRow key={user.id}>
             <TableCell className="font-medium">{user.name ?? "—"}</TableCell>
             <TableCell className="text-muted-foreground">{user.email}</TableCell>
-            <TableCell className="text-right tabular-nums">{user._count.properties}</TableCell>
-            <TableCell className="text-right tabular-nums">{user._count.bookings}</TableCell>
+            <TableCell className="text-right tabular-nums">{user.listings}</TableCell>
+            <TableCell className="text-right tabular-nums">{user.bookings}</TableCell>
             <TableCell className="text-muted-foreground">
               {user.createdAt.toLocaleDateString("en-US", { month: "short", year: "numeric" })}
             </TableCell>

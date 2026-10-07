@@ -7,14 +7,14 @@ export const API_ROUTES = {
   properties: {
     list: "GET /api/properties",
     detail: "GET /api/properties/:slug",
-    create: "POST /api/agent/properties",
-    update: "PATCH /api/agent/properties/:id",
+    create: "POST /api/agency/properties",
+    update: "PATCH /api/agency/properties/:id",
     approve: "POST /api/admin/properties/:id/approve",
   },
   bookings: {
     create: "POST /api/bookings",
     listUser: "GET /api/me/bookings",
-    listAgent: "GET /api/agent/bookings",
+    listHost: "GET /api/host/bookings",
     listAdmin: "GET /api/admin/bookings",
     updateStatus: "PATCH /api/admin/bookings/:id",
   },
@@ -35,8 +35,8 @@ export const API_ROUTES = {
   },
 } as const;
 
-/** Event fan-out for admin analytics + agent CRM */
+/** Event fan-out for admin analytics + host CRM */
 export type WebhookEvent =
   | { type: "booking.created"; payload: { id: string; propertyId: string } }
   | { type: "booking.confirmed"; payload: { id: string; visitAt: string } }
-  | { type: "subscription.updated"; payload: { agentId: string; planId: string } };
+  | { type: "subscription.updated"; payload: { agencyId: string; planId: string } };

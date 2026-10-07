@@ -11,17 +11,12 @@ import {
   requireAgency,
 } from "@/server/agency";
 import { isSettingEnabled } from "@/server/admin";
-import {
-  brokerCanPublish,
-  getBrokerListingAllowance,
-  requireActiveBrokerForWrite,
-} from "@/server/broker";
 import { propertyInputSchema, slugify, type PropertyInput } from "@/server/property-input";
+import { canCreateProperty, canPublishProperty, canSubmitProperty } from "@/server/property-permissions";
 import {
   getSellerListingAllowance,
   requireActiveSellerForWrite,
   requireSeller,
-  sellerCanPublish,
 } from "@/server/seller";
 import { getListingAllowance } from "@/server/subscriptions";
 
@@ -88,18 +83,18 @@ async function resolveAgencyStatus(
   return { status: requested };
 }
 
-async function resolveProfileStatus(
+async function resolveSellerStatus(
   requested: PropertyStatus,
-  isAdmin: boolean,
-  profileStatus: AgentStatus,
-  canPublish: (s: AgentStatus) => boolean,
-  blockedMessage: string
+  actor: { role: "SELLER" | "ADMIN"; accountStatus: AgentStatus }
 ): Promise<{ status: PropertyStatus; error?: string }> {
-  if (isAdmin) return { status: requested };
+  if (canPublishProperty(actor)) return { status: requested };
   if (requested === "draft") return { status: "draft" };
 
-  if (!canPublish(profileStatus)) {
-    return { status: "draft", error: blockedMessage };
+  if (!canSubmitProperty(actor)) {
+    return {
+      status: "draft",
+      error: "Your seller account must be approved before listings go live.",
+    };
   }
 
   if (requested === "published" || requested === "pending_review") {
@@ -194,14 +189,16 @@ export async function createSellerPropertyAction(
     }
   }
 
+  const actor = {
+    role: ctx.isAdmin ? ("ADMIN" as const) : ("SELLER" as const),
+    accountStatus: ctx.profile?.status ?? "onboarding",
+  };
+  if (!canCreateProperty(actor)) {
+    return { error: "Your seller account cannot create listings yet." };
+  }
+
   const values = parsed.data;
-  const resolved = await resolveProfileStatus(
-    values.status,
-    ctx.isAdmin,
-    ctx.profile?.status ?? "onboarding",
-    sellerCanPublish,
-    "Your seller account must be approved before listings go live."
-  );
+  const resolved = await resolveSellerStatus(values.status, actor);
   if (resolved.error && values.status !== "draft") return { error: resolved.error };
 
   const slug = await uniqueSlug(values.title);
@@ -234,64 +231,6 @@ export async function createSellerPropertyAction(
 
   revalidateProperty(created.slug);
   redirect(`/seller/properties/${created.id}/edit?created=1`);
-}
-
-export async function createBrokerPropertyAction(
-  input: PropertyInput
-): Promise<PropertyActionResult> {
-  const ctx = await requireActiveBrokerForWrite();
-  const parsed = propertyInputSchema.safeParse(input);
-  if (!parsed.success) return flatten(parsed.error);
-
-  if (!ctx.isAdmin) {
-    const allowance = await getBrokerListingAllowance(ctx.session.user.id);
-    if (!allowance.canCreate) {
-      return {
-        error: `Brokers can keep up to ${allowance.limit} listings. Remove one to add another.`,
-      };
-    }
-  }
-
-  const values = parsed.data;
-  const resolved = await resolveProfileStatus(
-    values.status,
-    ctx.isAdmin,
-    ctx.profile?.status ?? "onboarding",
-    brokerCanPublish,
-    "Your broker account must be approved before listings go live."
-  );
-  if (resolved.error && values.status !== "draft") return { error: resolved.error };
-
-  const slug = await uniqueSlug(values.title);
-  const created = await prisma.property.create({
-    data: {
-      slug,
-      title: values.title,
-      description: values.description,
-      address: values.address,
-      city: values.city,
-      country: values.country,
-      price: values.price,
-      purpose: values.purpose,
-      bedrooms: values.bedrooms,
-      bathrooms: values.bathrooms,
-      areaSqm: values.areaSqm,
-      furnished: values.furnished,
-      videoUrl: values.videoUrl,
-      categories: values.categories,
-      amenities: values.amenities,
-      badges: values.badges,
-      status: resolved.status,
-      agentId: ctx.session.user.id,
-      agencyId: null,
-      sellerId: null,
-      images: { create: imageRows(values.images) },
-    },
-    select: { id: true, slug: true },
-  });
-
-  revalidateProperty(created.slug);
-  redirect(`/broker/properties/${created.id}/edit?created=1`);
 }
 
 export async function updatePropertyAction(
@@ -369,79 +308,12 @@ export async function updateSellerPropertyAction(
     return { error: "You can only edit your own listings." };
   }
 
+  const actor = {
+    role: ctx.isAdmin ? ("ADMIN" as const) : ("SELLER" as const),
+    accountStatus: ctx.profile?.status ?? "onboarding",
+  };
   const values = parsed.data;
-  const resolved = await resolveProfileStatus(
-    values.status,
-    ctx.isAdmin,
-    ctx.profile?.status ?? "onboarding",
-    sellerCanPublish,
-    "Your seller account must be approved before listings go live."
-  );
-  if (resolved.error && values.status !== "draft") return { error: resolved.error };
-
-  const slug = await uniqueSlug(values.title, id);
-
-  await prisma.$transaction([
-    prisma.propertyImage.deleteMany({ where: { propertyId: id } }),
-    prisma.property.update({
-      where: { id },
-      data: {
-        slug,
-        title: values.title,
-        description: values.description,
-        address: values.address,
-        city: values.city,
-        country: values.country,
-        price: values.price,
-        purpose: values.purpose,
-        bedrooms: values.bedrooms,
-        bathrooms: values.bathrooms,
-        areaSqm: values.areaSqm,
-        furnished: values.furnished,
-        videoUrl: values.videoUrl ?? null,
-        categories: values.categories,
-        amenities: values.amenities,
-        badges: values.badges,
-        status: resolved.status,
-        images: { create: imageRows(values.images) },
-      },
-    }),
-  ]);
-
-  revalidateProperty(existing.slug);
-  revalidateProperty(slug);
-  return {};
-}
-
-export async function updateBrokerPropertyAction(
-  id: string,
-  input: PropertyInput
-): Promise<PropertyActionResult> {
-  const ctx = await requireActiveBrokerForWrite();
-  const parsed = propertyInputSchema.safeParse(input);
-  if (!parsed.success) return flatten(parsed.error);
-
-  const existing = await prisma.property.findUnique({
-    where: { id },
-    select: { id: true, slug: true, agentId: true, agencyId: true, sellerId: true, status: true },
-  });
-  if (!existing) return { error: "That listing no longer exists." };
-
-  if (
-    !ctx.isAdmin &&
-    (existing.agentId !== ctx.session.user.id || existing.agencyId || existing.sellerId)
-  ) {
-    return { error: "You can only edit your own broker listings." };
-  }
-
-  const values = parsed.data;
-  const resolved = await resolveProfileStatus(
-    values.status,
-    ctx.isAdmin,
-    ctx.profile?.status ?? "onboarding",
-    brokerCanPublish,
-    "Your broker account must be approved before listings go live."
-  );
+  const resolved = await resolveSellerStatus(values.status, actor);
   if (resolved.error && values.status !== "draft") return { error: resolved.error };
 
   const slug = await uniqueSlug(values.title, id);
