@@ -63,6 +63,13 @@ export interface Property {
   coordinates?: { lat: number; lng: number };
   /** ISO timestamps the owner is willing to host. Empty means none posted yet. */
   availableSlots: string[];
+  availabilityWindows: Array<{
+    start: string;
+    end: string;
+    durationMin: number;
+    bufferMin: number;
+    timezone?: string;
+  }>;
 }
 
 export interface SubscriptionPlan {

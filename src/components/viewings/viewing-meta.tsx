@@ -3,10 +3,12 @@ import { CalendarCheck, Clock, Users, Video } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
+  DEFAULT_DURATION_MIN,
   VIEWING_STATUS_LABELS,
   VIEWING_STATUS_TONE,
   VISIT_MODE_LABELS,
   formatInZone,
+  formatSlotRange,
 } from "@/lib/viewings";
 
 export function ViewingStatusBadge({ status }: { status: BookingStatus }) {
@@ -22,6 +24,7 @@ export function ViewingMeta({
   timezone,
   mode,
   partySize,
+  durationMin = DEFAULT_DURATION_MIN,
 }: {
   slots: Date[];
   visitDate: Date | null;
@@ -29,6 +32,7 @@ export function ViewingMeta({
   timezone: string;
   mode: VisitMode;
   partySize: number;
+  durationMin?: number;
 }) {
   const showAgreed = Boolean(visitDate) && status !== "declined" && status !== "cancelled";
   const timeLabel =
@@ -46,7 +50,7 @@ export function ViewingMeta({
         <p className="flex flex-wrap items-center gap-2 font-medium">
           <CalendarCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
           {timeLabel}{" "}
-          <span className="tabular-nums">{formatInZone(visitDate, timezone)}</span>
+          <span className="tabular-nums">{formatSlotRange(visitDate, durationMin, timezone)}</span>
         </p>
       ) : null}
 

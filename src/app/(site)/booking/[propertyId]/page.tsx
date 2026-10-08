@@ -111,14 +111,14 @@ async function RequestPanel({ property }: { property: Property }) {
   const target = `/booking/${property.id}`;
 
   if (session?.user) {
-    const { open, taken } = await listBuyerAvailability(property.id, property.availableSlots);
+    const { open } = await listBuyerAvailability(property.id);
     return (
       <RequestViewingForm
         propertyId={property.id}
         propertySlug={property.slug}
+        propertyTitle={property.title}
         contactKind={property.contact.kind}
-        availableSlots={open}
-        takenSlots={taken}
+        openSlots={open}
       />
     );
   }

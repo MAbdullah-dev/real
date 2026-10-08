@@ -14,11 +14,15 @@ import {
   canHostTransition,
   canSellerTransition,
   formatInZone,
+  generateSlots,
   isViewingOpen,
+  occupancyConflicts,
   parseAvailability,
+  parseAvailabilityWindows,
   parseSlots,
   sameSlot,
   slotInList,
+  visitEndOf,
 } from "../src/lib/viewings";
 
 const NOW = Date.parse("2026-03-01T12:00:00Z");
@@ -65,6 +69,59 @@ assert.equal(windows.length, 4, `listing availability may hold up to ${MAX_AVAIL
 assert.ok(slotInList(windows[0], windows), "posted times are findable");
 assert.ok(sameSlot(windows[0], new Date(windows[0].valueOf() + 30_000)), "slots match within a minute");
 assert.ok(!slotInList(new Date(windows[0].valueOf() + 120_000), windows), "a different minute is not the same window");
+
+const sat = generateSlots({
+  start: new Date("2026-10-17T10:00:00.000Z"),
+  end: new Date("2026-10-17T13:00:00.000Z"),
+  durationMin: 30,
+  bufferMin: 15,
+});
+assert.equal(sat.length, 4, "10:00–13:00 / 30+15 yields four slots");
+assert.equal(sat[0].toISOString(), "2026-10-17T10:00:00.000Z");
+assert.equal(sat[1].toISOString(), "2026-10-17T10:45:00.000Z");
+assert.equal(sat[2].toISOString(), "2026-10-17T11:30:00.000Z");
+assert.equal(sat[3].toISOString(), "2026-10-17T12:15:00.000Z");
+assert.ok(
+  sat.every((start) => visitEndOf(start, 30).valueOf() <= Date.parse("2026-10-17T13:00:00.000Z")),
+  "every generated viewing fits inside the window"
+);
+
+assert.equal(
+  generateSlots({
+    start: new Date("2026-10-17T10:00:00.000Z"),
+    end: new Date("2026-10-17T10:20:00.000Z"),
+    durationMin: 30,
+    bufferMin: 15,
+  }).length,
+  0,
+  "a window shorter than one viewing yields no slots"
+);
+
+const first = { start: sat[0], end: visitEndOf(sat[0], 30) };
+assert.ok(
+  occupancyConflicts(first, [{ start: new Date("2026-10-17T10:15:00.000Z"), end: new Date("2026-10-17T10:45:00.000Z") }]),
+  "10:15 overlaps 10:00–10:30"
+);
+assert.ok(
+  !occupancyConflicts(first, [{ start: sat[1], end: visitEndOf(sat[1], 30) }]),
+  "10:45 does not overlap 10:00–10:30 (buffer is not occupancy)"
+);
+
+assert.ok(
+  "error" in
+    parseAvailabilityWindows(
+      [
+        {
+          start: hours(MIN_LEAD_HOURS + 2),
+          end: hours(MIN_LEAD_HOURS + 2.2),
+          durationMin: 30,
+          bufferMin: 15,
+        },
+      ],
+      NOW
+    ),
+  "a window too short for one viewing is rejected"
+);
 
 /* State machine --------------------------------------------------------- */
 

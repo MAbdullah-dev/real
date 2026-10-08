@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { MOCK_PROPERTIES } from "../src/data/properties";
 import { SUBSCRIPTION_PLANS } from "../src/data/plans";
+import { generateAllSlots } from "../src/lib/viewings";
 
 const prisma = new PrismaClient();
 
@@ -501,7 +502,6 @@ async function main() {
       sellerId: seller.id,
       agentId: seller.id,
       agencyId: null,
-      availableSlots: [inDays(3, 10), inDays(5, 16), inDays(8, 11)],
     },
     create: {
       id: "seller-home-1",
@@ -525,8 +525,38 @@ async function main() {
       sellerId: seller.id,
       agentId: seller.id,
       agencyId: null,
-      availableSlots: [inDays(3, 10), inDays(5, 16), inDays(8, 11)],
     },
+  });
+  const sellerWindows = [
+    {
+      start: inDays(3, 10),
+      end: inDays(3, 13),
+      durationMin: 30,
+      bufferMin: 15,
+      timezone: "Asia/Karachi",
+    },
+    {
+      start: inDays(5, 16),
+      end: inDays(5, 18),
+      durationMin: 30,
+      bufferMin: 15,
+      timezone: "Asia/Karachi",
+    },
+    {
+      start: inDays(8, 11),
+      end: inDays(8, 13),
+      durationMin: 30,
+      bufferMin: 15,
+      timezone: "Asia/Karachi",
+    },
+  ];
+  await prisma.availabilityWindow.deleteMany({ where: { propertyId: "seller-home-1" } });
+  await prisma.availabilityWindow.createMany({
+    data: sellerWindows.map((window) => ({ propertyId: "seller-home-1", ...window })),
+  });
+  await prisma.property.update({
+    where: { id: "seller-home-1" },
+    data: { availableSlots: generateAllSlots(sellerWindows) },
   });
   await prisma.propertyImage.deleteMany({ where: { propertyId: "seller-home-1" } });
   await prisma.propertyImage.createMany({
@@ -603,6 +633,8 @@ async function main() {
       partySize: 3,
       slots: [inDays(3, 10)],
       visitDate: inDays(3, 10),
+      visitDurationMin: 30,
+      visitEnd: new Date(inDays(3, 10).valueOf() + 30 * 60_000),
       buyerAcceptedAt: new Date(),
       events: {
         create: { status: "pending", actorRole: "buyer", note: "Picked an owner-posted time" },
@@ -624,6 +656,8 @@ async function main() {
       partySize: 2,
       slots: [inDays(5, 16)],
       visitDate: inDays(5, 16),
+      visitDurationMin: 30,
+      visitEnd: new Date(inDays(5, 16).valueOf() + 30 * 60_000),
       buyerAcceptedAt: new Date(),
       sellerAcceptedAt: new Date(),
       events: {
@@ -649,6 +683,8 @@ async function main() {
       partySize: 2,
       slots: [inDays(8, 11)],
       visitDate: inDays(8, 11),
+      visitDurationMin: 30,
+      visitEnd: new Date(inDays(8, 11).valueOf() + 30 * 60_000),
       buyerAcceptedAt: new Date(),
       sellerAcceptedAt: new Date(),
       assignedBrokerId: broker.id,

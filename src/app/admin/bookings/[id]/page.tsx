@@ -55,6 +55,7 @@ async function BookingDetail({ params }: { params: Promise<{ id: string }> }) {
         timezone={booking.timezone}
         mode={booking.mode}
         partySize={booking.partySize}
+        durationMin={booking.visitDurationMin}
       />
 
       {booking.assignedBroker ? (

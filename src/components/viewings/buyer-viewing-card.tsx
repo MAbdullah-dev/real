@@ -53,6 +53,7 @@ export function BuyerViewingCard({ viewing }: { viewing: ViewingRow }) {
             timezone={viewing.timezone}
             mode={viewing.mode}
             partySize={viewing.partySize}
+            durationMin={viewing.visitDurationMin}
           />
 
           <p className="text-xs text-muted-foreground">

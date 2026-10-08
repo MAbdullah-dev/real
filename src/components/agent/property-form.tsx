@@ -29,8 +29,11 @@ import {
   updatePropertyAction,
   updateSellerPropertyAction,
 } from "@/server/actions/properties";
-import { SlotPicker } from "@/components/viewings/slot-picker";
-import { MAX_AVAILABILITY } from "@/lib/viewings";
+import {
+  AvailabilityWindowsField,
+  emptyWindow,
+} from "@/components/viewings/availability-windows-field";
+import { browserTimezone } from "@/lib/viewings";
 import { PROPERTY_CATEGORIES } from "@/server/property-input";
 
 const formSchema = z.object({
@@ -51,6 +54,15 @@ const formSchema = z.object({
   badges: z.string(),
   images: z.array(z.string()).min(1, "Add at least one photo."),
   availableSlots: z.array(z.string()),
+  availabilityWindows: z.array(
+    z.object({
+      start: z.string(),
+      end: z.string(),
+        durationMin: z.number(),
+        bufferMin: z.number(),
+        timezone: z.string().optional(),
+    })
+  ),
   status: z.enum(["draft", "pending_review", "published"]),
 });
 
@@ -74,6 +86,7 @@ export const emptyPropertyForm: PropertyFormValues = {
   badges: "",
   images: [],
   availableSlots: [""],
+  availabilityWindows: [emptyWindow()],
   status: "draft",
 };
 
@@ -106,7 +119,18 @@ export function PropertyForm({
 
   function onSubmit(values: PropertyFormValues) {
     startTransition(async () => {
-      const payload = { ...values, videoUrl: values.videoUrl.trim() || undefined };
+      const payload = {
+        ...values,
+        videoUrl: values.videoUrl.trim() || undefined,
+        availabilityWindows: values.availabilityWindows
+          .filter((window) => window.start && window.end)
+          .map((window) => ({
+            ...window,
+            start: new Date(window.start).toISOString(),
+            end: new Date(window.end).toISOString(),
+            timezone: browserTimezone(),
+          })),
+      };
       const result =
         mode === "create"
           ? variant === "seller"
@@ -292,19 +316,18 @@ export function PropertyForm({
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
             {variant === "seller"
-              ? "Buyers can only request a viewing on these times. Required before you submit for review."
-              : "Optional. If you post times, buyers pick from this list instead of choosing freely."}
+              ? "Buyers book a generated slot inside these windows. Required before you submit for review."
+              : "Optional. If you add windows, buyers pick a generated slot instead of choosing freely."}
           </p>
           <Controller
             control={form.control}
-            name="availableSlots"
+            name="availabilityWindows"
             render={({ field }) => (
-              <SlotPicker
-                value={field.value.length ? field.value : [""]}
+              <AvailabilityWindowsField
+                value={field.value.length ? field.value : [emptyWindow()]}
                 onChange={field.onChange}
                 disabled={pending}
-                maxSlots={MAX_AVAILABILITY}
-                legend="Available window"
+                required={variant === "seller"}
               />
             )}
           />

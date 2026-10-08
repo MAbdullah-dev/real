@@ -1,5 +1,6 @@
 import type {
   Agency,
+  AvailabilityWindow,
   BrokerProfile,
   Plan,
   Property as PropertyRow,
@@ -8,6 +9,7 @@ import type {
   User,
 } from "@prisma/client";
 import { sanitizeMarketingBadges } from "@/lib/listing-contact";
+import { generateAllSlots, resolveWindows } from "@/lib/viewings";
 import type {
   ListingContact,
   Property,
@@ -17,6 +19,10 @@ import type {
 
 export type PropertyWithAgent = PropertyRow & {
   images: PropertyImage[];
+  availabilityWindows?: Pick<
+    AvailabilityWindow,
+    "start" | "end" | "durationMin" | "bufferMin" | "timezone"
+  >[];
   agent: Pick<User, "id" | "name" | "image"> & {
     brokerProfile: Pick<BrokerProfile, "phone" | "whatsapp" | "title" | "status"> | null;
     sellerProfile: Pick<SellerProfile, "phone" | "status"> | null;
@@ -71,6 +77,11 @@ export function toProperty(row: PropertyWithAgent): Property {
   const images = [...row.images].sort((a, b) => a.sortOrder - b.sortOrder);
   const cover = images.find((img) => img.isCover) ?? images[0];
   const gallery = images.filter((img) => img.id !== cover?.id).map((img) => img.url);
+  const windows = resolveWindows(row.availabilityWindows, row.availableSlots);
+  const generated = generateAllSlots(windows);
+  const generatedStarts = generated.length
+    ? generated.map((slot) => slot.toISOString())
+    : row.availableSlots.map((slot) => slot.toISOString());
 
   return {
     id: row.id,
@@ -101,7 +112,14 @@ export function toProperty(row: PropertyWithAgent): Property {
     videoUrl: row.videoUrl ?? undefined,
     coordinates:
       row.lat != null && row.lng != null ? { lat: row.lat, lng: row.lng } : undefined,
-    availableSlots: row.availableSlots.map((slot) => slot.toISOString()),
+    availableSlots: generatedStarts,
+    availabilityWindows: windows.map((window, index) => ({
+      start: window.start.toISOString(),
+      end: window.end.toISOString(),
+      durationMin: window.durationMin,
+      bufferMin: window.bufferMin,
+      timezone: row.availabilityWindows?.[index]?.timezone,
+    })),
   };
 }
 

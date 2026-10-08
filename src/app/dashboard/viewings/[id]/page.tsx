@@ -68,6 +68,7 @@ export default async function BuyerViewingDetailPage({
             timezone={viewing.timezone}
             mode={viewing.mode}
             partySize={viewing.partySize}
+            durationMin={viewing.visitDurationMin}
           />
 
           {viewing.statusNote ? (

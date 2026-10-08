@@ -11,7 +11,15 @@ import {
   requireAgency,
 } from "@/server/agency";
 import { isSettingEnabled } from "@/server/admin";
-import { parseAvailability } from "@/lib/viewings";
+import {
+  DEFAULT_BUFFER_MIN,
+  DEFAULT_DURATION_MIN,
+  OPEN_VIEWING_STATUSES,
+  parseAvailabilityWindows,
+  slotInList,
+  visitEndOf,
+  type AvailabilityWindowSpec,
+} from "@/lib/viewings";
 import { propertyInputSchema, slugify, type PropertyInput, type PropertyValues } from "@/server/property-input";
 import { canCreateProperty, canPublishProperty, canSubmitProperty } from "@/server/property-permissions";
 import {
@@ -54,14 +62,52 @@ async function uniqueSlug(title: string, ignoreId?: string) {
 
 function availabilityRows(
   values: PropertyValues,
-  requireSlots: boolean
-): { slots: Date[] } | { error: string } {
+  requireWindows: boolean
+): { windows: AvailabilityWindowSpec[]; slots: Date[] } | { error: string } {
+  const rows = (values.availabilityWindows ?? []).filter(
+    (window) => window.start.trim() && window.end.trim()
+  );
+  if (rows.length > 0) return parseAvailabilityWindows(rows);
+
   const filled = (values.availableSlots ?? []).filter((slot) => slot.trim());
   if (filled.length === 0) {
-    if (requireSlots) return { error: "Add at least one viewing time buyers can book." };
-    return { slots: [] };
+    if (requireWindows) return { error: "Add at least one viewing window buyers can book." };
+    return { windows: [], slots: [] };
   }
-  return parseAvailability(filled);
+  return parseAvailabilityWindows(
+    filled.map((start) => {
+      const time = new Date(start);
+      return {
+        start: time.toISOString(),
+        end: visitEndOf(time, DEFAULT_DURATION_MIN).toISOString(),
+        durationMin: DEFAULT_DURATION_MIN,
+        bufferMin: DEFAULT_BUFFER_MIN,
+      };
+    })
+  );
+}
+
+function windowCreates(
+  windows: AvailabilityWindowSpec[],
+  timezone?: string
+) {
+  return windows.map((window) => ({
+    start: window.start,
+    end: window.end,
+    durationMin: window.durationMin,
+    bufferMin: window.bufferMin,
+    timezone: timezone || "UTC",
+  }));
+}
+
+async function windowsKeepOpenBookings(propertyId: string, slots: Date[]) {
+  const open = await prisma.booking.findMany({
+    where: { propertyId, status: { in: OPEN_VIEWING_STATUSES }, visitDate: { not: null } },
+    select: { visitDate: true },
+  });
+  const lost = open.filter((row) => row.visitDate && !slotInList(row.visitDate, slots));
+  if (lost.length === 0) return;
+  return `This change would drop ${lost.length} open viewing${lost.length === 1 ? "" : "s"}. Cancel or complete them first.`;
 }
 
 function imageRows(images: string[]): Prisma.PropertyImageCreateWithoutPropertyInput[] {
@@ -178,6 +224,7 @@ export async function createPropertyAction(input: PropertyInput): Promise<Proper
       amenities: values.amenities,
       badges: values.badges,
       availableSlots: avail.slots,
+      availabilityWindows: { create: windowCreates(avail.windows, values.availabilityWindows[0]?.timezone) },
       status: resolved.status,
       agencyId: targetAgencyId,
       agentId: ctx.session.user.id,
@@ -241,6 +288,7 @@ export async function createSellerPropertyAction(
       amenities: values.amenities,
       badges: values.badges,
       availableSlots: avail.slots,
+      availabilityWindows: { create: windowCreates(avail.windows, values.availabilityWindows[0]?.timezone) },
       status: resolved.status,
       sellerId: ctx.session.user.id,
       agentId: ctx.session.user.id,
@@ -279,11 +327,14 @@ export async function updatePropertyAction(
 
   const avail = availabilityRows(values, false);
   if ("error" in avail) return { error: avail.error };
+  const blocked = await windowsKeepOpenBookings(id, avail.slots);
+  if (blocked) return { error: blocked };
 
   const slug = await uniqueSlug(values.title, id);
 
   await prisma.$transaction([
     prisma.propertyImage.deleteMany({ where: { propertyId: id } }),
+    prisma.availabilityWindow.deleteMany({ where: { propertyId: id } }),
     prisma.property.update({
       where: { id },
       data: {
@@ -304,6 +355,7 @@ export async function updatePropertyAction(
         amenities: values.amenities,
         badges: values.badges,
         availableSlots: avail.slots,
+        availabilityWindows: { create: windowCreates(avail.windows, values.availabilityWindows[0]?.timezone) },
         status: resolved.status,
         images: { create: imageRows(values.images) },
       },
@@ -343,11 +395,14 @@ export async function updateSellerPropertyAction(
 
   const avail = availabilityRows(values, resolved.status !== "draft");
   if ("error" in avail) return { error: avail.error };
+  const blocked = await windowsKeepOpenBookings(id, avail.slots);
+  if (blocked) return { error: blocked };
 
   const slug = await uniqueSlug(values.title, id);
 
   await prisma.$transaction([
     prisma.propertyImage.deleteMany({ where: { propertyId: id } }),
+    prisma.availabilityWindow.deleteMany({ where: { propertyId: id } }),
     prisma.property.update({
       where: { id },
       data: {
@@ -368,6 +423,7 @@ export async function updateSellerPropertyAction(
         amenities: values.amenities,
         badges: values.badges,
         availableSlots: avail.slots,
+        availabilityWindows: { create: windowCreates(avail.windows, values.availabilityWindows[0]?.timezone) },
         status: resolved.status,
         images: { create: imageRows(values.images) },
       },

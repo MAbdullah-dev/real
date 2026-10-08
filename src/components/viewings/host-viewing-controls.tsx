@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { sameSlot } from "@/lib/viewings";
+import { DEFAULT_DURATION_MIN, formatClockRange, sameSlot } from "@/lib/viewings";
 import { hostUpdateViewingAction } from "@/server/actions/bookings";
 
 function toLocalInput(date: Date | string | null) {
@@ -38,6 +38,8 @@ export function HostViewingControls({
   visitDate,
   flow = "agency",
   proposedBy,
+  generatedStarts = [],
+  durationMin = DEFAULT_DURATION_MIN,
 }: {
   id: string;
   status: BookingStatus;
@@ -45,6 +47,8 @@ export function HostViewingControls({
   visitDate: string | null;
   flow?: "agency" | "seller" | "broker";
   proposedBy?: string | null;
+  generatedStarts?: string[];
+  durationMin?: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -94,23 +98,9 @@ export function HostViewingControls({
     <div className="space-y-3">
       {canSchedule ? (
         <div className="flex flex-wrap items-end gap-2">
-          <div className="space-y-1">
-            <Label htmlFor={`when-${id}`} className="text-xs text-muted-foreground">
-              Date and time
-            </Label>
-            <Input
-              id={`when-${id}`}
-              type="datetime-local"
-              value={when}
-              step={900}
-              className="h-9 w-56"
-              disabled={pending}
-              onChange={(event) => setWhen(event.target.value)}
-            />
-          </div>
-          {slots.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5 pb-1">
-              {slots.map((slot) => (
+          {flow === "seller" && generatedStarts.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {generatedStarts.map((slot) => (
                 <button
                   key={slot}
                   type="button"
@@ -118,17 +108,49 @@ export function HostViewingControls({
                   disabled={pending}
                   onClick={() => setWhen(toLocalInput(slot))}
                 >
-                  Use{" "}
-                  {new Date(slot).toLocaleString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+                  {formatClockRange(slot, durationMin, Intl.DateTimeFormat().resolvedOptions().timeZone)}
                 </button>
               ))}
             </div>
-          ) : null}
+          ) : (
+            <>
+              <div className="space-y-1">
+                <Label htmlFor={`when-${id}`} className="text-xs text-muted-foreground">
+                  Date and time
+                </Label>
+                <Input
+                  id={`when-${id}`}
+                  type="datetime-local"
+                  value={when}
+                  step={900}
+                  className="h-9 w-56"
+                  disabled={pending}
+                  onChange={(event) => setWhen(event.target.value)}
+                />
+              </div>
+              {slots.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 pb-1">
+                  {slots.map((slot) => (
+                    <button
+                      key={slot}
+                      type="button"
+                      className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                      disabled={pending}
+                      onClick={() => setWhen(toLocalInput(slot))}
+                    >
+                      Use{" "}
+                      {new Date(slot).toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       ) : null}
 

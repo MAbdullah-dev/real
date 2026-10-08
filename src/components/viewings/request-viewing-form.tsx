@@ -5,7 +5,7 @@ import Link from "next/link";
 import * as React from "react";
 import { toast } from "sonner";
 
-import { AvailabilityPicker } from "@/components/viewings/availability-picker";
+import { ViewingDayPicker } from "@/components/viewings/viewing-day-picker";
 import { SlotPicker, slotsToIso } from "@/components/viewings/slot-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,24 +19,27 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CONTACT_KIND_LABELS } from "@/lib/listing-contact";
-import { browserTimezone } from "@/lib/viewings";
+import { browserTimezone, dayKey, formatClockRange, formatSlotRange } from "@/lib/viewings";
 import { requestViewingAction } from "@/server/actions/bookings";
 import type { ListingContactKind } from "@/types";
+
+export type OpenSlot = { start: string; end: string; durationMin: number };
 
 export function RequestViewingForm({
   propertyId,
   propertySlug,
+  propertyTitle,
   contactKind,
-  availableSlots,
-  takenSlots,
+  openSlots,
 }: {
   propertyId: string;
   propertySlug: string;
+  propertyTitle: string;
   contactKind: ListingContactKind;
-  availableSlots: string[];
-  takenSlots: string[];
+  openSlots: OpenSlot[];
 }) {
-  const lockedToAvailability = availableSlots.length > 0 || contactKind === "seller";
+  const lockedToAvailability = openSlots.length > 0 || contactKind === "seller";
+  const [day, setDay] = React.useState("");
   const [picked, setPicked] = React.useState("");
   const [slots, setSlots] = React.useState<string[]>([""]);
   const [phone, setPhone] = React.useState("");
@@ -47,13 +50,27 @@ export function RequestViewingForm({
   const [pending, startTransition] = React.useTransition();
   const timezone = browserTimezone();
 
+  const days = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const slot of openSlots) set.add(dayKey(slot.start, timezone));
+    return set;
+  }, [openSlots, timezone]);
+
+  const slotsForDay = openSlots.filter((slot) => dayKey(slot.start, timezone) === day);
+  const selected = openSlots.find((slot) => slot.start === picked);
+
+  React.useEffect(() => {
+    if (day && !days.has(day)) setDay("");
+    if (picked && !openSlots.some((slot) => slot.start === picked)) setPicked("");
+  }, [day, days, openSlots, picked]);
+
   function submit(event: React.FormEvent) {
     event.preventDefault();
     const iso = lockedToAvailability ? (picked ? [picked] : []) : slotsToIso(slots);
     if (iso.length === 0) {
       toast.error(
         lockedToAvailability
-          ? "Pick one of the posted viewing times."
+          ? "Pick a date and an available time."
           : "Pick at least one time that works for you."
       );
       return;
@@ -99,23 +116,54 @@ export function RequestViewingForm({
     );
   }
 
-  const noWindows = lockedToAvailability && availableSlots.length === 0;
+  const noWindows = lockedToAvailability && openSlots.length === 0;
 
   return (
     <form className="space-y-6" onSubmit={submit}>
-      <fieldset className="space-y-3" disabled={pending}>
+      <fieldset className="space-y-4" disabled={pending}>
         <legend className="text-sm font-semibold">
-          {lockedToAvailability ? "Pick a posted time" : "When works for you?"}
+          {lockedToAvailability ? "Choose a viewing time" : "When works for you?"}
         </legend>
-        {lockedToAvailability ? (
-          <AvailabilityPicker
-            slots={availableSlots}
-            taken={takenSlots}
-            value={picked}
-            onChange={setPicked}
-            timezone={timezone}
-            disabled={pending}
-          />
+        {noWindows ? (
+          <p className="rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
+            The owner has not posted any viewing times yet. Check back after they add availability.
+          </p>
+        ) : lockedToAvailability ? (
+          <div className="space-y-4">
+            <ViewingDayPicker availableDays={days} value={day} onChange={setDay} />
+            {day ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Available times</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {slotsForDay.map((slot) => (
+                    <button
+                      key={slot.start}
+                      type="button"
+                      onClick={() => setPicked(slot.start)}
+                      className={`min-h-11 rounded-2xl border px-3 py-2 text-sm tabular-nums ${
+                        picked === slot.start
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      {formatClockRange(slot.start, slot.durationMin, timezone)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Select a highlighted date to see times.</p>
+            )}
+            {selected ? (
+              <div className="rounded-2xl bg-muted/40 px-4 py-3 text-sm">
+                <p className="font-medium">{propertyTitle}</p>
+                <p className="mt-1 tabular-nums text-muted-foreground">
+                  {formatSlotRange(selected.start, selected.durationMin, timezone)}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{selected.durationMin}-minute viewing</p>
+              </div>
+            ) : null}
+          </div>
         ) : (
           <SlotPicker value={slots} onChange={setSlots} disabled={pending} />
         )}

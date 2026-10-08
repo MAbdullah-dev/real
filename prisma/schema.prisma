@@ -290,8 +290,9 @@ model Property {
   lng         Float?
   status      PropertyStatus  @default(draft)
 
-  /** Future viewing windows the owner is willing to host. Buyers pick from these. */
+  /** Denormalized generated starts (legacy + cache). Windows are the source of truth. */
   availableSlots DateTime[]
+  availabilityWindows AvailabilityWindow[]
 
   /** Seller-owned listing. Null when the agency owns the listing. */
   sellerId String?
@@ -333,6 +334,22 @@ model PropertyImage {
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 }
 
+/** Seller/agency “I’m free this afternoon” range. Slots are generated, not stored. */
+model AvailabilityWindow {
+  id          String   @id @default(cuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  start       DateTime
+  end         DateTime
+  durationMin Int      @default(30)
+  bufferMin   Int      @default(15)
+  timezone    String   @default("UTC")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([propertyId, start])
+}
+
 model Booking {
   id         String        @id @default(cuid())
   propertyId String
@@ -355,6 +372,9 @@ model Booking {
 
   /** Agreed start time once confirmed, or the current offer while negotiating. */
   visitDate DateTime?
+  /** Snapshot of viewing length at booking time. Window edits must not rewrite this. */
+  visitDurationMin Int      @default(30)
+  visitEnd         DateTime?
 
   /** Who last offered a new time: seller | admin. Null while the buyer is waiting on the seller. */
   proposedBy String?

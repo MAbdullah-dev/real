@@ -3,7 +3,16 @@ import "server-only";
 import type { BookingStatus, Prisma, Role } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { OPEN_VIEWING_STATUSES, isViewingOpen } from "@/lib/viewings";
+import {
+  OPEN_VIEWING_STATUSES,
+  bookingOccupies,
+  durationForStart,
+  generateAllSlots,
+  isViewingOpen,
+  occupancyConflicts,
+  resolveWindows,
+  visitEndOf,
+} from "@/lib/viewings";
 import { getMembership } from "@/server/agency";
 
 const bookingInclude = {
@@ -15,6 +24,10 @@ const bookingInclude = {
       city: true,
       address: true,
       availableSlots: true,
+      availabilityWindows: {
+        select: { start: true, end: true, durationMin: true, bufferMin: true },
+        orderBy: { start: "asc" as const },
+      },
       agentId: true,
       agencyId: true,
       sellerId: true,
@@ -58,22 +71,57 @@ export function groupUserViewings(rows: ViewingRow[]) {
   return { upcoming, active, past };
 }
 
-export async function listBuyerAvailability(propertyId: string, posted: Date[] | string[]) {
-  const now = Date.now();
+export async function listBuyerAvailability(propertyId: string, posted: Date[] | string[] = []) {
+  const property = await prisma.property.findUnique({
+    where: { id: propertyId },
+    select: {
+      availableSlots: true,
+      availabilityWindows: {
+        select: { start: true, end: true, durationMin: true, bufferMin: true },
+      },
+    },
+  });
+  const windows = resolveWindows(
+    property?.availabilityWindows,
+    property?.availableSlots ?? posted.map((slot) => new Date(slot))
+  );
+  const generated = generateAllSlots(windows);
   const takenRows = await prisma.booking.findMany({
     where: {
       propertyId,
       status: { in: OPEN_VIEWING_STATUSES },
       visitDate: { not: null },
     },
-    select: { visitDate: true },
+    select: { visitDate: true, visitEnd: true, visitDurationMin: true },
   });
-  const taken = takenRows.map((row) => row.visitDate!.toISOString());
-  const open = posted
-    .map((slot) => new Date(slot))
-    .filter((slot) => !Number.isNaN(slot.valueOf()) && slot.valueOf() > now)
-    .map((slot) => slot.toISOString());
-  return { open, taken };
+  const occupied = takenRows
+    .map((row) => bookingOccupies(row.visitDate, row.visitEnd, row.visitDurationMin))
+    .filter((row): row is { start: Date; end: Date } => Boolean(row));
+  const now = Date.now();
+  const open = generated
+    .filter((start) => {
+      if (start.valueOf() <= now) return false;
+      const durationMin = durationForStart(start, windows);
+      return !occupancyConflicts({ start, end: visitEndOf(start, durationMin) }, occupied);
+    })
+    .map((start) => {
+      const durationMin = durationForStart(start, windows);
+      return {
+        start: start.toISOString(),
+        end: visitEndOf(start, durationMin).toISOString(),
+        durationMin,
+      };
+    });
+  return {
+    windows: windows.map((window) => ({
+      start: window.start.toISOString(),
+      end: window.end.toISOString(),
+      durationMin: window.durationMin,
+      bufferMin: window.bufferMin,
+    })),
+    open,
+    taken: occupied.map((row) => row.start.toISOString()),
+  };
 }
 
 export function getUserViewing(id: string, userId: string) {

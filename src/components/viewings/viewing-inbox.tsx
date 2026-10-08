@@ -120,6 +120,7 @@ function HostViewingCard({
           timezone={viewing.timezone}
           mode={viewing.mode}
           partySize={viewing.partySize}
+          durationMin={viewing.visitDurationMin}
         />
 
         {viewing.notes ? (
@@ -138,6 +139,8 @@ function HostViewingCard({
               visitDate={viewing.visitDate?.toISOString() ?? null}
               flow={role === "SELLER" ? "seller" : role === "BROKER" ? "broker" : "agency"}
               proposedBy={viewing.proposedBy}
+              generatedStarts={viewing.property.availableSlots.map((slot) => slot.toISOString())}
+              durationMin={viewing.visitDurationMin}
             />
           </>
         ) : null}

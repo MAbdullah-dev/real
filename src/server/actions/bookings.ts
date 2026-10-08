@@ -8,17 +8,24 @@ import { prisma } from "@/lib/prisma";
 import { isSellerOwned } from "@/lib/listing-ownership";
 import { rateLimit, retryMessage } from "@/lib/rate-limit";
 import {
+  DEFAULT_DURATION_MIN,
   MAX_SLOTS,
   OPEN_VIEWING_STATUSES,
   VIEWING_STATUS_LABELS,
+  bookingOccupies,
   canAdminTransition,
   canHostTransition,
   canSellerTransition,
+  durationForStart,
   formatInZone,
   isViewingOpen,
+  occupancyConflicts,
   parseSlots,
+  resolveWindows,
   sameSlot,
-  slotInList,
+  slotIsGenerated,
+  visitEndOf,
+  type AvailabilityWindowSpec,
 } from "@/lib/viewings";
 import { recordPropertyLead } from "@/server/analytics";
 import { hostPropertyScope } from "@/server/bookings";
@@ -93,17 +100,46 @@ async function notifyListingDesk(property: ListingNotify, title: string, body: s
   await notifyUsers(users, title, body, (role) => hostViewingsHref(role as never));
 }
 
-async function takenVisitTimes(propertyId: string, ignoreBookingId?: string) {
-  const rows = await prisma.booking.findMany({
+type DbClient = typeof prisma | Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+function visitFields(start: Date, durationMin: number) {
+  return {
+    visitDate: start,
+    visitDurationMin: durationMin,
+    visitEnd: visitEndOf(start, durationMin),
+  };
+}
+
+async function occupiedIntervals(client: DbClient, propertyId: string, ignoreBookingId?: string) {
+  const rows = await client.booking.findMany({
     where: {
       propertyId,
       status: { in: OPEN_VIEWING_STATUSES },
       visitDate: { not: null },
       ...(ignoreBookingId ? { id: { not: ignoreBookingId } } : {}),
     },
-    select: { visitDate: true },
+    select: { visitDate: true, visitEnd: true, visitDurationMin: true },
   });
-  return rows.map((row) => row.visitDate!).filter(Boolean);
+  return rows
+    .map((row) => bookingOccupies(row.visitDate, row.visitEnd, row.visitDurationMin))
+    .filter((row): row is { start: Date; end: Date } => Boolean(row));
+}
+
+function bookableSlot(
+  start: Date,
+  windows: AvailabilityWindowSpec[],
+  occupied: Array<{ start: Date; end: Date }>,
+  requireGenerated: boolean
+): { durationMin: number } | { error: string } {
+  if (requireGenerated) {
+    if (windows.length === 0) return { error: "This listing has no viewing times posted yet." };
+    if (!slotIsGenerated(start, windows)) return { error: "That time is not on the owner's availability." };
+  }
+  const durationMin = requireGenerated ? durationForStart(start, windows) : DEFAULT_DURATION_MIN;
+  if (occupancyConflicts({ start, end: visitEndOf(start, durationMin) }, occupied)) {
+    return { error: "That time overlaps another viewing — pick another." };
+  }
+  return { durationMin };
 }
 
 export async function requestViewingAction(
@@ -122,98 +158,107 @@ export async function requestViewingAction(
   const slotResult = parseSlots(values.slots);
   if ("error" in slotResult) return { error: slotResult.error };
 
-  const property = await prisma.property.findUnique({
-    where: { id: values.propertyId },
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      status: true,
-      agentId: true,
-      sellerId: true,
-      agencyId: true,
-      availableSlots: true,
-    },
-  });
-  if (!property || property.status !== "published") {
-    return { error: "That listing is no longer accepting viewings." };
-  }
-  if (property.agentId === session.user.id || property.sellerId === session.user.id) {
-    return { error: "This is your own listing — viewing requests come from buyers." };
-  }
+  try {
+    const created = await prisma.$transaction(
+      async (tx) => {
+        const property = await tx.property.findUnique({
+          where: { id: values.propertyId },
+          select: {
+            id: true,
+            slug: true,
+            title: true,
+            status: true,
+            agentId: true,
+            sellerId: true,
+            agencyId: true,
+            availableSlots: true,
+            availabilityWindows: {
+              select: { start: true, end: true, durationMin: true, bufferMin: true },
+            },
+          },
+        });
+        if (!property || property.status !== "published") {
+          return { error: "That listing is no longer accepting viewings." };
+        }
+        if (property.agentId === session.user.id || property.sellerId === session.user.id) {
+          return { error: "This is your own listing — viewing requests come from buyers." };
+        }
 
-  const sellerOwned = isSellerOwned(property);
-  const windows = property.availableSlots;
-  if (sellerOwned || windows.length > 0) {
-    if (windows.length === 0) {
-      return { error: "This listing has no viewing times posted yet." };
-    }
-    if (slotResult.slots.length !== 1) {
-      return { error: "Pick one of the times the owner posted." };
-    }
-    const picked = slotResult.slots[0];
-    if (!slotInList(picked, windows)) {
-      return { error: "That time is not on the owner's availability." };
-    }
-    const taken = await takenVisitTimes(property.id);
-    if (slotInList(picked, taken)) {
-      return { error: "That time was just taken — pick another." };
-    }
-  }
+        const sellerOwned = isSellerOwned(property);
+        const windows = resolveWindows(property.availabilityWindows, property.availableSlots);
+        const requireGenerated = sellerOwned || windows.length > 0;
+        if (requireGenerated && slotResult.slots.length !== 1) {
+          return { error: "Pick one of the times the owner posted." };
+        }
 
-  const open = await prisma.booking.findFirst({
-    where: {
-      propertyId: property.id,
-      userId: session.user.id,
-      status: { in: OPEN_VIEWING_STATUSES },
-    },
-    select: { id: true },
-  });
-  if (open) {
-    return {
-      error: "You already have an open viewing on this listing — update that one instead.",
-    };
-  }
+        const visitDate = slotResult.slots[0];
+        const occupied = await occupiedIntervals(tx, property.id);
+        const slot = bookableSlot(visitDate, windows, occupied, requireGenerated);
+        if ("error" in slot) return slot;
 
-  const visitDate = slotResult.slots[0];
-  const booking = await prisma.booking.create({
-    data: {
-      propertyId: property.id,
-      userId: session.user.id,
-      name: session.user.name ?? "Buyer",
-      email: session.user.email ?? "",
-      phone: values.phone,
-      notes: values.notes,
-      mode: values.mode,
-      partySize: values.partySize,
-      timezone: values.timezone,
-      slots: slotResult.slots,
-      visitDate,
-      buyerAcceptedAt: new Date(),
-      events: {
-        create: {
-          status: "pending",
-          actorRole: "buyer",
-          actorId: session.user.id,
-          note: "Viewing requested",
-        },
+        const open = await tx.booking.findFirst({
+          where: {
+            propertyId: property.id,
+            userId: session.user.id,
+            status: { in: OPEN_VIEWING_STATUSES },
+          },
+          select: { id: true },
+        });
+        if (open) {
+          return {
+            error: "You already have an open viewing on this listing — update that one instead.",
+          };
+        }
+
+        const booking = await tx.booking.create({
+          data: {
+            propertyId: property.id,
+            userId: session.user.id,
+            name: session.user.name ?? "Buyer",
+            email: session.user.email ?? "",
+            phone: values.phone,
+            notes: values.notes,
+            mode: values.mode,
+            partySize: values.partySize,
+            timezone: values.timezone,
+            slots: slotResult.slots,
+            ...visitFields(visitDate, slot.durationMin),
+            buyerAcceptedAt: new Date(),
+            events: {
+              create: {
+                status: "pending",
+                actorRole: "buyer",
+                actorId: session.user.id,
+                note: "Viewing requested",
+              },
+            },
+          },
+          select: { id: true },
+        });
+        return { ok: true as const, id: booking.id, property, visitDate };
       },
-    },
-    select: { id: true },
-  });
+      { isolationLevel: "Serializable" }
+    );
 
-  const first = formatInZone(visitDate, values.timezone);
-  await Promise.all([
-    recordPropertyLead(property.id),
-    notifyListingDesk(
-      property,
-      "New viewing request",
-      `${session.user.name ?? "A buyer"} asked to view ${property.title} — ${first}.`
-    ),
-  ]);
+    if ("error" in created) return created;
 
-  updateTag("bookings");
-  return { ok: true, id: booking.id };
+    const first = formatInZone(created.visitDate, values.timezone);
+    await Promise.all([
+      recordPropertyLead(created.property.id),
+      notifyListingDesk(
+        created.property,
+        "New viewing request",
+        `${session.user.name ?? "A buyer"} asked to view ${created.property.title} — ${first}.`
+      ),
+    ]);
+
+    updateTag("bookings");
+    return { ok: true, id: created.id };
+  } catch (error) {
+    const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+    if (code === "P2034") return { error: "That time was just taken — pick another." };
+    throw error;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -254,7 +299,18 @@ export async function hostUpdateViewingAction(
         : { id: parsed.data.id, property: scope as Prisma.PropertyWhereInput },
     include: {
       property: {
-        select: { id: true, slug: true, title: true, agentId: true, sellerId: true, agencyId: true },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          agentId: true,
+          sellerId: true,
+          agencyId: true,
+          availableSlots: true,
+          availabilityWindows: {
+            select: { start: true, end: true, durationMin: true, bufferMin: true },
+          },
+        },
       },
     },
   });
@@ -300,11 +356,20 @@ export async function hostUpdateViewingAction(
   }
 
   let visitDate = booking.visitDate;
+  let visitDurationMin = booking.visitDurationMin;
   if (next === "confirmed" || next === "proposed" || next === "pending_admin") {
     const picked = parsed.data.visitDate ? new Date(parsed.data.visitDate) : booking.visitDate ?? booking.slots[0];
     if (!picked) return { error: "Choose the date and time for this viewing." };
     if (picked.valueOf() < Date.now()) return { error: "Pick a time in the future." };
     visitDate = picked;
+    const windows = resolveWindows(booking.property.availabilityWindows, booking.property.availableSlots);
+    const requireGenerated = sellerOwned || (role === "SELLER" && windows.length > 0);
+    if (next === "proposed" || (next === "pending_admin" && booking.visitDate && !sameSlot(picked, booking.visitDate))) {
+      const occupied = await occupiedIntervals(prisma, booking.propertyId, booking.id);
+      const slot = bookableSlot(picked, windows, occupied, requireGenerated);
+      if ("error" in slot) return slot;
+      visitDurationMin = slot.durationMin;
+    }
   }
   if ((next === "completed" || next === "no_show") && (!visitDate || visitDate > new Date())) {
     return { error: "You can only close out a viewing after its scheduled time." };
@@ -348,7 +413,9 @@ export async function hostUpdateViewingAction(
     where: { id: booking.id },
     data: {
       status,
-      visitDate,
+      ...(visitDate
+        ? visitFields(visitDate, visitDurationMin)
+        : {}),
       statusNote: parsed.data.note || null,
       proposedBy,
       sellerAcceptedAt,
@@ -454,6 +521,9 @@ export async function buyerUpdateViewingAction(
           sellerId: true,
           agencyId: true,
           availableSlots: true,
+          availabilityWindows: {
+            select: { start: true, end: true, durationMin: true, bufferMin: true },
+          },
         },
       },
     },
@@ -506,22 +576,20 @@ export async function buyerUpdateViewingAction(
     const slotResult = parseSlots(parsed.data.slots ?? []);
     if ("error" in slotResult) return { error: slotResult.error };
 
-    if (sellerOwned || booking.property.availableSlots.length > 0) {
+    const windows = resolveWindows(booking.property.availabilityWindows, booking.property.availableSlots);
+    const requireGenerated = sellerOwned || windows.length > 0;
+    if (requireGenerated) {
       if (slotResult.slots.length !== 1) {
         return { error: "Pick one of the times the owner posted." };
       }
-      if (!slotInList(slotResult.slots[0], booking.property.availableSlots)) {
-        return { error: "That time is not on the owner's availability." };
-      }
-      const taken = await takenVisitTimes(booking.propertyId, booking.id);
-      if (slotInList(slotResult.slots[0], taken)) {
-        return { error: "That time was just taken — pick another." };
-      }
     }
+    const occupied = await occupiedIntervals(prisma, booking.propertyId, booking.id);
+    const slot = bookableSlot(slotResult.slots[0], windows, occupied, requireGenerated);
+    if ("error" in slot) return slot;
 
     next = "pending";
     data = {
-      visitDate: slotResult.slots[0],
+      ...visitFields(slotResult.slots[0], slot.durationMin),
       statusNote: null,
       slots: slotResult.slots,
       proposedBy: null,
@@ -699,10 +767,15 @@ export async function adminUpdateViewingAction(
   }
 
   let visitDate = booking.visitDate;
+  let visitDurationMin = booking.visitDurationMin;
   if (intent === "reschedule") {
     if (!parsed.data.visitDate) return { error: "Pick the new date and time." };
     visitDate = new Date(parsed.data.visitDate);
     if (visitDate.valueOf() < Date.now()) return { error: "Pick a time in the future." };
+    const occupied = await occupiedIntervals(prisma, booking.propertyId, booking.id);
+    const slot = bookableSlot(visitDate, [], occupied, false);
+    if ("error" in slot) return slot;
+    visitDurationMin = booking.visitDurationMin || DEFAULT_DURATION_MIN;
   }
   if (intent === "accept" && (!visitDate || visitDate.valueOf() < Date.now())) {
     return { error: "The agreed time is missing or has passed." };
@@ -713,7 +786,7 @@ export async function adminUpdateViewingAction(
     where: { id: booking.id },
     data: {
       status: next,
-      visitDate,
+      ...(visitDate ? visitFields(visitDate, visitDurationMin) : {}),
       statusNote: parsed.data.note || null,
       proposedBy: intent === "reschedule" ? "admin" : booking.proposedBy,
       buyerAcceptedAt: intent === "reschedule" ? null : booking.buyerAcceptedAt,

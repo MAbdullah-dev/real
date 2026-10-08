@@ -57,6 +57,18 @@ export const propertyInputSchema = z.object({
     .min(1, "Add at least one image.")
     .max(12, "Twelve images maximum."),
   availableSlots: z.array(z.string()).optional().default([]),
+  availabilityWindows: z
+    .array(
+      z.object({
+        start: z.string().min(1),
+        end: z.string().min(1),
+        durationMin: z.coerce.number().int(),
+        bufferMin: z.coerce.number().int(),
+        timezone: z.string().optional(),
+      })
+    )
+    .optional()
+    .default([]),
   status: z.enum(["draft", "pending_review", "published"]).default("draft"),
 });
 

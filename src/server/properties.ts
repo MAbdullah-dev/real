@@ -6,13 +6,14 @@ import { prisma } from "@/lib/prisma";
 import type { Property } from "@/types";
 import { propertiesByCategory, toProperty, type PropertyWithAgent } from "@/server/mappers";
 import type { PropertyFilterParams, PropertySort } from "@/server/property-filters";
-import { toDatetimeLocalValue } from "@/lib/viewings";
+import { resolveWindows, toDatetimeLocalValue } from "@/lib/viewings";
 import type { PROPERTY_CATEGORIES } from "@/server/property-input";
 
 type PropertyFormCategories = (typeof PROPERTY_CATEGORIES)[number][];
 
 export const propertyInclude = {
   images: true,
+  availabilityWindows: { orderBy: { start: "asc" as const } },
   agent: {
     select: {
       id: true,
@@ -178,9 +179,14 @@ export async function listSellerProperties(sellerId: string) {
 export async function getPropertyForEdit(id: string) {
   const row = await prisma.property.findUnique({
     where: { id },
-    include: { images: { orderBy: { sortOrder: "asc" } } },
+    include: {
+      images: { orderBy: { sortOrder: "asc" } },
+      availabilityWindows: { orderBy: { start: "asc" } },
+    },
   });
   if (!row) return undefined;
+
+  const windows = resolveWindows(row.availabilityWindows, row.availableSlots);
 
   return {
     id: row.id,
@@ -207,6 +213,12 @@ export async function getPropertyForEdit(id: string) {
       badges: row.badges.join(", "),
       images: row.images.map((image) => image.url),
       availableSlots: row.availableSlots.map(toDatetimeLocalValue),
+      availabilityWindows: windows.map((window) => ({
+        start: toDatetimeLocalValue(window.start),
+        end: toDatetimeLocalValue(window.end),
+        durationMin: window.durationMin,
+        bufferMin: window.bufferMin,
+      })),
       status: row.status === "rejected" ? ("draft" as const) : row.status,
     },
   };
