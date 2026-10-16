@@ -91,7 +91,7 @@ async function main() {
   });
 
   const seller = await prisma.user.upsert({
-    where: { email: "seller@estate-elite.local" },
+    where: { email: "C" },
     update: { passwordHash, role: "SELLER", name: "Nadia Khan", emailVerified: new Date() },
     create: {
       id: "seller1",

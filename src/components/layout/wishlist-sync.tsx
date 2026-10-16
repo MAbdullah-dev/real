@@ -16,6 +16,10 @@ export function WishlistSync() {
   const synced = useRef(false);
 
   useEffect(() => {
+    if (status === "unauthenticated") {
+      synced.current = false;
+      return;
+    }
     if (status !== "authenticated" || synced.current) return;
     synced.current = true;
     void (async () => {

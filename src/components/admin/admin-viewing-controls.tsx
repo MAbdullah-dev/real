@@ -45,7 +45,7 @@ export function AdminViewingControls({
   const [brokerUserId, setBrokerUserId] = React.useState(assignedBrokerId ?? "");
 
   function run(
-    intent: "accept" | "reschedule" | "decline" | "assign" | "skip_broker",
+    intent: "accept" | "reschedule" | "decline" | "assign" | "skip_broker" | "confirm_complete",
     extra?: { visitDate?: string; brokerUserId?: string }
   ) {
     startTransition(async () => {
@@ -65,9 +65,16 @@ export function AdminViewingControls({
     });
   }
 
+  const canMoveTime =
+    status === "pending_admin" ||
+    status === "proposed" ||
+    status === "confirmed" ||
+    status === "pending_complete";
+  const lockMove = status === "confirmed" || status === "pending_complete";
+
   return (
     <div className="space-y-4">
-      {status === "pending_admin" || status === "proposed" ? (
+      {canMoveTime ? (
         <div className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor={`admin-when-${id}`} className="text-xs text-muted-foreground">
@@ -103,6 +110,27 @@ export function AdminViewingControls({
                 Accept this time
               </Button>
             ) : null}
+            {status === "pending_complete" ? (
+              <Button
+                size="sm"
+                className="rounded-full"
+                disabled={pending}
+                onClick={() => run("confirm_complete")}
+              >
+                {pending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+                Confirm visit done
+              </Button>
+            ) : null}
+            {status === "confirmed" && !assignedBrokerId ? (
+              <Button
+                size="sm"
+                className="rounded-full"
+                disabled={pending || Boolean(visitDate && new Date(visitDate) > new Date())}
+                onClick={() => run("confirm_complete")}
+              >
+                Confirm visit done
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant="outline"
@@ -110,7 +138,7 @@ export function AdminViewingControls({
               disabled={pending || !when}
               onClick={() => run("reschedule", { visitDate: new Date(when).toISOString() })}
             >
-              Send new time to both
+              {lockMove ? "Set new time" : "Send new time to both"}
             </Button>
             {status === "pending_admin" ? (
               <Button

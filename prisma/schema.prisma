@@ -32,6 +32,7 @@ enum BookingStatus {
   proposed
   pending_admin
   confirmed
+  pending_complete
   declined
   cancelled
   completed
@@ -384,6 +385,9 @@ model Booking {
 
   assignedBrokerId String?
   assignedBroker   User?   @relation("AssignedBrokerViewings", fields: [assignedBrokerId], references: [id], onDelete: SetNull)
+
+  /** Set when the platform confirms the visit is done. Parties lose it after two days. */
+  completedAt DateTime?
 
   events BookingEvent[]
 

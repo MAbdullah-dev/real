@@ -13,8 +13,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import type { DashboardNavItem } from "@/config/dashboard-nav";
-import { signOutAction } from "@/server/actions/auth";
 import { cn } from "@/lib/utils";
 
 function matchesNavItem(pathname: string, href: string) {
@@ -128,11 +128,7 @@ export function DashboardShell({
             ) : null}
             <div className="flex items-center justify-between">
               <ThemeToggle />
-              <form action={signOutAction}>
-                <Button type="submit" variant="outline" size="sm">
-                  Sign out
-                </Button>
-              </form>
+              <SignOutButton variant="outline" size="sm" />
             </div>
           </div>
         </div>
@@ -162,6 +158,9 @@ export function DashboardShell({
                     {title}
                   </p>
                   <DashboardNavLinks nav={nav} pathname={pathname} badges={badges} />
+                  <div className="mt-6 border-t border-border pt-4">
+                    <SignOutButton variant="outline" className="w-full rounded-full" />
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>

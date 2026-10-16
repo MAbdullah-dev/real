@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { isViewingOpen } from "@/lib/viewings";
+import { isViewingOpen, timeIsLocked } from "@/lib/viewings";
 import { buyerUpdateViewingAction } from "@/server/actions/bookings";
 
 export function BuyerViewingActions({
@@ -61,6 +61,8 @@ export function BuyerViewingActions({
   }
 
   const open = isViewingOpen(status);
+  const canReschedule = !timeIsLocked(status) && status !== "declined" && status !== "cancelled" && status !== "no_show";
+  const canProposeAgain = status === "declined" || status === "cancelled" || status === "no_show";
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -81,13 +83,11 @@ export function BuyerViewingActions({
         </Button>
       ) : null}
 
-      {status !== "completed" ? (
+      {canReschedule || canProposeAgain ? (
         <Dialog open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" className="rounded-full" disabled={pending}>
-              {status === "declined" || status === "cancelled" || status === "no_show"
-                ? "Propose new times"
-                : "Reschedule"}
+              {canProposeAgain ? "Propose new times" : "Reschedule"}
             </Button>
           </DialogTrigger>
           <DialogContent>

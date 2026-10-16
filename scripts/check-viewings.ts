@@ -10,9 +10,12 @@ import {
   MAX_AVAILABILITY,
   MAX_SLOTS,
   MIN_LEAD_HOURS,
+  COMPLETED_PARTY_MS,
   canAdminTransition,
   canHostTransition,
   canSellerTransition,
+  partyCanSeeViewing,
+  timeIsLocked,
   formatInZone,
   generateSlots,
   isViewingOpen,
@@ -127,8 +130,9 @@ assert.ok(
 
 assert.ok(canHostTransition("pending", "confirmed"), "agency pending → confirmed");
 assert.ok(canHostTransition("proposed", "confirmed"), "proposed → confirmed");
-assert.ok(canHostTransition("confirmed", "completed"), "confirmed → completed");
-assert.ok(canHostTransition("confirmed", "proposed"), "a host may move a confirmed time");
+assert.ok(canHostTransition("confirmed", "pending_complete"), "host reports done");
+assert.ok(!canHostTransition("confirmed", "completed"), "admin confirms completion");
+assert.ok(!canHostTransition("confirmed", "proposed"), "hosts cannot reschedule after confirm");
 
 assert.ok(!canHostTransition("completed", "confirmed"), "completed is terminal");
 assert.ok(!canHostTransition("cancelled", "confirmed"), "cancelled is terminal");
@@ -142,16 +146,23 @@ assert.ok(
 assert.ok(canSellerTransition("pending", "pending_admin"), "seller agrees → platform");
 assert.ok(canSellerTransition("pending", "proposed"), "seller may send a new time to the buyer");
 assert.ok(!canSellerTransition("pending", "confirmed"), "seller cannot self-confirm");
+assert.ok(!canSellerTransition("confirmed", "proposed"), "seller cannot move a locked time");
+assert.ok(canSellerTransition("confirmed", "cancelled"), "seller may still cancel");
 assert.ok(canSellerTransition("proposed", "pending_admin"), "seller may accept an admin offer back to platform");
 assert.ok(canAdminTransition("pending_admin", "confirmed"), "admin accept");
-assert.ok(canAdminTransition("pending_admin", "proposed"), "admin reschedule");
+assert.ok(canAdminTransition("pending_admin", "proposed"), "admin reschedule before lock");
+assert.ok(canAdminTransition("confirmed", "confirmed"), "admin may set a new locked time");
+assert.ok(canAdminTransition("pending_complete", "completed"), "admin confirms broker done");
 assert.ok(!canAdminTransition("pending", "confirmed"), "admin does not skip seller agreement");
+assert.ok(timeIsLocked("confirmed") && timeIsLocked("pending_complete") && timeIsLocked("completed"));
+assert.ok(!timeIsLocked("pending") && !timeIsLocked("proposed"));
 
 assert.ok(
   isViewingOpen("pending") &&
     isViewingOpen("proposed") &&
     isViewingOpen("pending_admin") &&
-    isViewingOpen("confirmed")
+    isViewingOpen("confirmed") &&
+    isViewingOpen("pending_complete")
 );
 assert.ok(
   !isViewingOpen("declined") &&
@@ -160,6 +171,13 @@ assert.ok(
     !isViewingOpen("no_show"),
   "terminal states are not open"
 );
+
+const justDone = new Date(NOW);
+const stale = new Date(NOW - COMPLETED_PARTY_MS - 1);
+assert.ok(partyCanSeeViewing("completed", justDone, NOW), "fresh completed visit stays visible");
+assert.ok(!partyCanSeeViewing("completed", stale, NOW), "completed visit drops after two days");
+assert.ok(!partyCanSeeViewing("completed", null, NOW), "completed without a stamp is hidden from parties");
+assert.ok(partyCanSeeViewing("confirmed", null, NOW), "open visits stay visible");
 
 /* Timezone rendering ---------------------------------------------------- */
 

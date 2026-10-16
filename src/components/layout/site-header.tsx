@@ -32,11 +32,17 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { SignOutButton, SignOutMenuItem } from "@/components/auth/sign-out-button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { homeForRole } from "@/server/roles";
 import { useWishlistStore } from "@/store/wishlist-store";
-import { signOutAction } from "@/server/actions/auth";
 
 import { ThemeToggle } from "./theme-toggle";
+
+function signInHref(pathname: string) {
+  return `/auth/login?callbackUrl=${encodeURIComponent(pathname)}`;
+}
 
 const exploreLinks = [
   { href: "/search", label: "Discover" },
@@ -50,8 +56,10 @@ const exploreLinks = [
 ];
 
 function MobileNav({ isHome }: { isHome: boolean }) {
-  const { data: session } = useSession();
+  const pathname = usePathname();
+  const { data: session, status } = useSession();
   const role = session?.user?.role;
+  const sessionPending = status === "loading";
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -91,39 +99,37 @@ function MobileNav({ isHome }: { isHome: boolean }) {
             ))}
           </nav>
           <div className="flex flex-col gap-2 border-t border-border pt-4">
-            {session ? (
+            {sessionPending ? (
               <>
-                {role === "ADMIN" ? (
-                  <Button asChild className="w-full rounded-full">
-                    <Link href="/admin">Admin console</Link>
+                <Skeleton className="h-11 w-full rounded-full" />
+                <Skeleton className="h-11 w-full rounded-full" />
+              </>
+            ) : session ? (
+              <>
+                <Button asChild className="w-full rounded-full">
+                  <Link href={homeForRole(role)}>
+                    {role === "ADMIN"
+                      ? "Admin console"
+                      : role === "AGENCY"
+                        ? "Agency console"
+                        : role === "BROKER"
+                          ? "Broker console"
+                          : role === "SELLER"
+                            ? "Seller console"
+                            : "Dashboard"}
+                  </Link>
+                </Button>
+                {role && role !== "USER" ? (
+                  <Button asChild variant="outline" className="w-full rounded-full">
+                    <Link href="/dashboard">Buyer workspace</Link>
                   </Button>
-                ) : role === "AGENCY" ? (
-                  <Button asChild className="w-full rounded-full">
-                    <Link href="/agency">Agency console</Link>
-                  </Button>
-                ) : role === "BROKER" ? (
-                  <Button asChild className="w-full rounded-full">
-                    <Link href="/broker">Broker console</Link>
-                  </Button>
-                ) : role === "SELLER" ? (
-                  <Button asChild className="w-full rounded-full">
-                    <Link href="/seller">Seller console</Link>
-                  </Button>
-                ) : (
-                  <Button asChild className="w-full rounded-full">
-                    <Link href="/dashboard">Dashboard</Link>
-                  </Button>
-                )}
-                <form action={signOutAction}>
-                  <Button type="submit" variant="outline" className="w-full rounded-full">
-                    Sign out
-                  </Button>
-                </form>
+                ) : null}
+                <SignOutButton variant="outline" className="w-full rounded-full" />
               </>
             ) : (
               <>
                 <Button asChild className="w-full rounded-full">
-                  <Link href="/auth/login">Sign in</Link>
+                  <Link href={signInHref(pathname)}>Sign in</Link>
                 </Button>
                 <Button asChild variant="outline" className="w-full rounded-full">
                   <Link href="/auth/register">Create account</Link>
@@ -141,8 +147,9 @@ export function SiteHeader() {
   const pathname = usePathname();
   const wishlistCount = useWishlistStore((s) => s.ids.length);
   const isHome = pathname === "/";
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const role = session?.user?.role;
+  const sessionPending = status === "loading";
 
   return (
     <motion.header
@@ -241,123 +248,120 @@ export function SiteHeader() {
             </Link>
           </Button>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          {sessionPending ? (
+            <>
+              <Skeleton
+                className={cn(
+                  "hidden h-9 w-28 rounded-full sm:inline-flex",
+                  isHome && "bg-white/20"
+                )}
+              />
+              <Skeleton
+                className={cn("h-9 w-16 rounded-full sm:hidden", isHome && "bg-white/20")}
+              />
+            </>
+          ) : session ? (
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "hidden sm:inline-flex rounded-full gap-2",
+                      isHome &&
+                        "border-white/30 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+                    )}
+                  >
+                    <UserRound className="h-4 w-4" />
+                    {session.user?.name?.split(" ")[0] ?? "Account"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    {session.user?.name ?? session.user?.email ?? "Workspace"}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {role === "ADMIN" ? (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin" className="gap-2">
+                        <Shield className="h-4 w-4" />
+                        Admin
+                      </Link>
+                    </DropdownMenuItem>
+                  ) : null}
+                  {role === "AGENCY" || role === "ADMIN" ? (
+                    <DropdownMenuItem asChild>
+                      <Link href="/agency" className="gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Agency console
+                      </Link>
+                    </DropdownMenuItem>
+                  ) : null}
+                  {role === "BROKER" || role === "ADMIN" ? (
+                    <DropdownMenuItem asChild>
+                      <Link href="/broker" className="gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Broker console
+                      </Link>
+                    </DropdownMenuItem>
+                  ) : null}
+                  {role === "SELLER" || role === "ADMIN" ? (
+                    <DropdownMenuItem asChild>
+                      <Link href="/seller" className="gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Seller console
+                      </Link>
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="gap-2">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <SignOutMenuItem />
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
+                asChild
+                size="sm"
+                className={cn(
+                  "inline-flex rounded-full sm:hidden",
+                  isHome && "border-white/30 bg-white/10 text-white hover:bg-white/15"
+                )}
+                variant={isHome ? "outline" : "default"}
+              >
+                <Link href={homeForRole(role)}>Account</Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                asChild
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "hidden sm:inline-flex rounded-full gap-2",
-                  isHome && "border-white/30 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+                  "hidden sm:inline-flex rounded-full",
+                  isHome &&
+                    "border-white/30 bg-white/10 text-white hover:bg-white/15 hover:text-white"
                 )}
               >
-                <UserRound className="h-4 w-4" />
-                Account
+                <Link href="/auth/register">Register</Link>
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>{session?.user?.name ?? session?.user?.email ?? "Workspace"}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {role === "ADMIN" ? (
-                <DropdownMenuItem asChild>
-                  <Link href="/admin" className="gap-2">
-                    <Shield className="h-4 w-4" />
-                    Admin
-                  </Link>
-                </DropdownMenuItem>
-              ) : null}
-              {role === "AGENCY" || role === "ADMIN" ? (
-                <DropdownMenuItem asChild>
-                  <Link href="/agency" className="gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Agency console
-                  </Link>
-                </DropdownMenuItem>
-              ) : null}
-              {role === "BROKER" || role === "ADMIN" ? (
-                <DropdownMenuItem asChild>
-                  <Link href="/broker" className="gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Broker console
-                  </Link>
-                </DropdownMenuItem>
-              ) : null}
-              {role === "SELLER" || role === "ADMIN" ? (
-                <DropdownMenuItem asChild>
-                  <Link href="/seller" className="gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Seller console
-                  </Link>
-                </DropdownMenuItem>
-              ) : null}
-              {session ? (
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="gap-2">
-                    <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
-                  </Link>
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuSeparator />
-              {session ? (
-                <form action={signOutAction}>
-                  <DropdownMenuItem asChild>
-                    <button type="submit" className="w-full cursor-pointer text-left">
-                      Sign out
-                    </button>
-                  </DropdownMenuItem>
-                </form>
-              ) : (
-                <>
-                  <DropdownMenuItem asChild>
-                    <Link href="/auth/login">Sign in</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/auth/register">Register</Link>
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {session ? (
-            <Button
-              asChild
-              size="sm"
-              className={cn(
-                "inline-flex rounded-full sm:hidden",
-                isHome && "border-white/30 bg-white/10 text-white hover:bg-white/15"
-              )}
-              variant={isHome ? "outline" : "default"}
-            >
-              <Link
-                href={
-                  role === "ADMIN"
-                    ? "/admin"
-                    : role === "AGENCY"
-                      ? "/agency"
-                      : role === "BROKER"
-                        ? "/broker"
-                        : role === "SELLER"
-                          ? "/seller"
-                          : "/dashboard"
-                }
+              <Button
+                asChild
+                size="sm"
+                className={cn(
+                  "inline-flex rounded-full",
+                  isHome && "border-white/30 bg-white/10 text-white hover:bg-white/15"
+                )}
+                variant={isHome ? "outline" : "default"}
               >
-                Account
-              </Link>
-            </Button>
-          ) : (
-            <Button
-              asChild
-              size="sm"
-              className={cn(
-                "inline-flex rounded-full sm:hidden",
-                isHome && "border-white/30 bg-white/10 text-white hover:bg-white/15"
-              )}
-              variant={isHome ? "outline" : "default"}
-            >
-              <Link href="/auth/login">Sign in</Link>
-            </Button>
+                <Link href={signInHref(pathname)}>Sign in</Link>
+              </Button>
+            </>
           )}
         </div>
       </div>

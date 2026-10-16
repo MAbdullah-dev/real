@@ -1,5 +1,7 @@
 import type { BookingStatus, VisitMode } from "@prisma/client";
-import { CalendarCheck, Clock, Users, Video } from "lucide-react";
+import { CalendarCheck, Clock, Mail, Phone, Users, Video } from "lucide-react";
+
+import { telHref } from "@/lib/listing-contact";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,7 +44,9 @@ export function ViewingMeta({
         ? "Requested time:"
         : status === "pending_admin"
           ? "Agreed time:"
-          : "Scheduled:";
+          : status === "pending_complete"
+            ? "Visited:"
+            : "Scheduled:";
 
   return (
     <div className="space-y-3 text-sm">
@@ -97,6 +101,7 @@ export function ViewingTimeline({
   const who: Record<string, string> = {
     buyer: viewer === "buyer" ? "You" : "Buyer",
     host: viewer === "host" ? "You" : "Listing contact",
+    broker: "Broker",
     admin: "Support",
     system: "System",
   };
@@ -124,5 +129,43 @@ export function ViewingTimeline({
         </li>
       ))}
     </ol>
+  );
+}
+
+export function ViewingContactCard({
+  label,
+  name,
+  email,
+  phone,
+}: {
+  label: string;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}) {
+  if (!name && !email && !phone) return null;
+  return (
+    <div className="min-w-[12rem] flex-1 rounded-2xl border border-border px-4 py-3 text-sm">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 font-medium">{name ?? "—"}</p>
+      {email ? (
+        <a
+          href={`mailto:${email}`}
+          className="mt-1 inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+        >
+          <Mail className="h-3.5 w-3.5" aria-hidden />
+          {email}
+        </a>
+      ) : null}
+      {phone ? (
+        <a
+          href={telHref(phone)}
+          className="mt-1 flex items-center gap-1 text-muted-foreground hover:text-foreground"
+        >
+          <Phone className="h-3.5 w-3.5" aria-hidden />
+          {phone}
+        </a>
+      ) : null}
+    </div>
   );
 }

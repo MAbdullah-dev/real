@@ -3,7 +3,12 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { AdminViewingControls } from "@/components/admin/admin-viewing-controls";
-import { ViewingMeta, ViewingStatusBadge, ViewingTimeline } from "@/components/viewings/viewing-meta";
+import {
+  ViewingContactCard,
+  ViewingMeta,
+  ViewingStatusBadge,
+  ViewingTimeline,
+} from "@/components/viewings/viewing-meta";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listBrokersForCity } from "@/server/actions/bookings";
 import { requireRole } from "@/server/auth";
@@ -58,12 +63,29 @@ async function BookingDetail({ params }: { params: Promise<{ id: string }> }) {
         durationMin={booking.visitDurationMin}
       />
 
-      {booking.assignedBroker ? (
-        <p className="text-sm">
-          Assigned broker:{" "}
-          <span className="font-medium">{booking.assignedBroker.name ?? booking.assignedBroker.email}</span>
-        </p>
-      ) : null}
+      <div className="flex flex-wrap gap-3">
+        <ViewingContactCard label="Buyer" name={booking.name} email={booking.email} phone={booking.phone} />
+        <ViewingContactCard
+          label={booking.property.seller ? "Seller" : "Agency"}
+          name={
+            booking.property.seller?.name ??
+            booking.property.agency?.name ??
+            booking.property.agent.name
+          }
+          email={booking.property.seller?.email ?? null}
+          phone={
+            booking.property.seller?.sellerProfile?.phone ?? booking.property.agency?.phone ?? null
+          }
+        />
+        {booking.assignedBroker ? (
+          <ViewingContactCard
+            label="Assigned broker"
+            name={booking.assignedBroker.name}
+            email={booking.assignedBroker.email}
+            phone={booking.assignedBroker.brokerProfile?.phone ?? null}
+          />
+        ) : null}
+      </div>
 
       <AdminViewingControls
         id={booking.id}
