@@ -13,6 +13,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useCompleteAuth } from "@/components/auth/complete-auth";
+import { RedirectIfSignedIn } from "@/components/auth/redirect-if-signed-in";
 import { googleSignIn, loginAction } from "@/server/actions/auth";
 
 const schema = z.object({
@@ -27,10 +29,12 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
   const callbackUrl = searchParams.get("callbackUrl") ?? undefined;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const completeAuth = useCompleteAuth();
   const form = useForm<Values>({ resolver: zodResolver(schema) });
 
   return (
     <Card className="glass-panel rounded-3xl border-white/20 shadow-[var(--shadow-soft)]">
+      <RedirectIfSignedIn />
       <CardHeader>
         <CardTitle className="text-2xl text-primary-foreground">Welcome back</CardTitle>
         <CardDescription className="text-primary-foreground/70">
@@ -43,11 +47,10 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
           onSubmit={form.handleSubmit((values) => {
             setError(null);
             startTransition(async () => {
-              const result = await loginAction({ ...values, callbackUrl });
-              if (result.error) {
-                setError(result.error);
-                toast.error(result.error);
-              }
+              await completeAuth(await loginAction({ ...values, callbackUrl }), setError, {
+                email: values.email,
+                password: values.password,
+              });
             });
           })}
         >

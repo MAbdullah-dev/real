@@ -1,10 +1,10 @@
 "use server";
 
-import { AuthError } from "next-auth";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-import { signIn, signOut } from "@/auth";
+import { signIn } from "@/auth";
+import { safeCallbackUrl } from "@/lib/callback-url";
 import { prisma } from "@/lib/prisma";
 import { createAgencyForUser, getMembership, agencyConsoleAccess } from "@/server/agency";
 import { isSettingEnabled } from "@/server/admin";
@@ -57,17 +57,11 @@ async function destinationForUser(userId: string, role: string) {
   return "/dashboard";
 }
 
-function safeCallback(url?: string | null) {
-  if (!url || !url.startsWith("/")) return null;
-  if (url.startsWith("//")) return null;
-  return url;
-}
-
 export async function loginAction(input: {
   email: string;
   password: string;
   callbackUrl?: string;
-}): Promise<{ error?: string }> {
+}): Promise<{ error?: string; redirectTo?: string }> {
   const parsed = credentialsSchema.safeParse(input);
   if (!parsed.success) return { error: "Enter a valid email and password." };
 
@@ -78,21 +72,8 @@ export async function loginAction(input: {
   const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
   if (!ok) return { error: "Invalid email or password." };
 
-  const dest = safeCallback(input.callbackUrl) ?? (await destinationForUser(user.id, user.role));
-
-  try {
-    await signIn("credentials", {
-      email,
-      password: parsed.data.password,
-      redirectTo: dest,
-    });
-    return {};
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Invalid email or password." };
-    }
-    throw error;
-  }
+  const dest = safeCallbackUrl(input.callbackUrl) ?? (await destinationForUser(user.id, user.role));
+  return { redirectTo: dest };
 }
 
 export async function registerAction(input: {
@@ -105,7 +86,7 @@ export async function registerAction(input: {
   asSeller?: boolean;
   acceptTerms?: boolean;
   callbackUrl?: string;
-}): Promise<{ error?: string }> {
+}): Promise<{ error?: string; redirectTo?: string }> {
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check your details." };
@@ -200,27 +181,11 @@ export async function registerAction(input: {
       : asSeller
         ? "/auth/onboarding/seller"
         : // A buyer who started from a listing should land back on it.
-          (safeCallback(input.callbackUrl) ?? "/dashboard");
+          (safeCallbackUrl(input.callbackUrl) ?? "/dashboard");
 
-  try {
-    await signIn("credentials", {
-      email,
-      password: parsed.data.password,
-      redirectTo,
-    });
-    return {};
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Account created, but sign-in failed. Please log in." };
-    }
-    throw error;
-  }
+  return { redirectTo };
 }
 
 export async function googleSignIn(callbackUrl?: string) {
-  await signIn("google", { redirectTo: safeCallback(callbackUrl) ?? "/dashboard" });
-}
-
-export async function signOutAction() {
-  await signOut({ redirectTo: "/" });
+  await signIn("google", { redirectTo: safeCallbackUrl(callbackUrl) ?? "/dashboard" });
 }

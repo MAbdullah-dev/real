@@ -20,6 +20,7 @@ import {
   formatInZone,
   isViewingOpen,
   occupancyConflicts,
+  timeIsLocked,
   parseSlots,
   resolveWindows,
   sameSlot,
@@ -271,8 +272,8 @@ const hostSchema = z.object({
     "confirmed",
     "proposed",
     "pending_admin",
+    "pending_complete",
     "declined",
-    "completed",
     "no_show",
     "cancelled",
   ]),
@@ -323,8 +324,14 @@ export async function hostUpdateViewingAction(
   const role = session.user.role;
 
   if (role === "BROKER") {
-    if (!canHostTransition(booking.status, next) || (next !== "completed" && next !== "no_show" && next !== "cancelled")) {
-      return { error: "Assigned brokers can close out a confirmed viewing, not approve new ones." };
+    if (
+      !canHostTransition(booking.status, next) ||
+      (next !== "pending_complete" && next !== "no_show" && next !== "cancelled")
+    ) {
+      return { error: "Assigned brokers can report a confirmed visit done, mark a no-show, or cancel." };
+    }
+    if (next === "pending_complete" && booking.assignedBrokerId !== session.user.id) {
+      return { error: "Only the assigned broker can report this visit done." };
     }
   } else if (sellerOwned && role === "SELLER") {
     if (next === "confirmed") {
@@ -371,7 +378,20 @@ export async function hostUpdateViewingAction(
       visitDurationMin = slot.durationMin;
     }
   }
-  if ((next === "completed" || next === "no_show") && (!visitDate || visitDate > new Date())) {
+  if (next === "proposed" && booking.status === "confirmed") {
+    return { error: "Confirmed times are locked. Cancel, or ask the platform to reschedule." };
+  }
+
+  if (next === "pending_complete") {
+    if (booking.assignedBrokerId && role !== "BROKER") {
+      return { error: "The assigned broker reports this visit done." };
+    }
+    if (!booking.assignedBrokerId && role === "BROKER") {
+      return { error: "This viewing has no assigned broker." };
+    }
+  }
+
+  if ((next === "pending_complete" || next === "no_show") && (!visitDate || visitDate > new Date())) {
     return { error: "You can only close out a viewing after its scheduled time." };
   }
 
@@ -466,12 +486,18 @@ export async function hostUpdateViewingAction(
       ),
       notifyAdmins("Viewing confirmed", `Both parties accepted the platform time for ${title}${when}.`),
     ]);
+  } else if (status === "pending_complete") {
+    await notifyAdmins(
+      "Visit reported done",
+      `${role === "BROKER" ? "The assigned broker" : "The listing contact"} reported ${title}${when} as done. Confirm to close it.`
+    );
   } else if (booking.userId && (status === "confirmed" || status === "declined" || status === "cancelled" || status === "completed" || status === "no_show")) {
     const copy: Record<BookingStatus, string> = {
       pending: "is back in the queue",
       proposed: `has a new time on offer${when}`,
       pending_admin: `is with the platform${when}`,
       confirmed: `is confirmed${when}`,
+      pending_complete: `was reported done${when} — the platform will confirm`,
       declined: "was declined",
       cancelled: "was cancelled by the listing contact",
       completed: "was marked complete",
@@ -568,8 +594,8 @@ export async function buyerUpdateViewingAction(
     next = "cancelled";
     data = { statusNote: parsed.data.reason || null };
   } else {
-    if (booking.status === "completed") {
-      return { error: "Completed viewings cannot be rescheduled — request a new one." };
+    if (timeIsLocked(booking.status)) {
+      return { error: "Confirmed times are locked. Cancel this viewing, or ask the platform to reschedule." };
     }
     const limit = rateLimit(`viewing:${session.user.id}`, 5, MS_HOUR);
     if (!limit.ok) return { error: retryMessage(limit.retryAfterMs) };
@@ -666,7 +692,7 @@ export async function buyerUpdateViewingAction(
 
 const adminSchema = z.object({
   id: z.string().min(1),
-  intent: z.enum(["accept", "reschedule", "decline", "assign", "skip_broker"]),
+  intent: z.enum(["accept", "reschedule", "decline", "assign", "skip_broker", "confirm_complete"]),
   visitDate: isoFuture.optional(),
   note: z.string().trim().max(500).optional(),
   brokerUserId: z.string().optional(),
@@ -758,9 +784,80 @@ export async function adminUpdateViewingAction(
     return { ok: true };
   }
 
-  const next: BookingStatus =
-    intent === "accept" ? "confirmed" : intent === "reschedule" ? "proposed" : "declined";
-  if (!canAdminTransition(booking.status, next) && !(intent === "reschedule" && booking.status === "proposed")) {
+  if (intent === "confirm_complete") {
+    const mayClose =
+      booking.status === "pending_complete" ||
+      (booking.status === "confirmed" && !booking.assignedBrokerId);
+    if (!mayClose) {
+      return {
+        error: booking.assignedBrokerId
+          ? "Wait for the assigned broker to report the visit done."
+          : "This viewing is not ready to close.",
+      };
+    }
+    if (booking.visitDate && booking.visitDate > new Date()) {
+      return { error: "You can only close a viewing after its scheduled time." };
+    }
+    const session = await requireAuth();
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: {
+        status: "completed",
+        completedAt: new Date(),
+        statusNote: parsed.data.note || booking.statusNote,
+        events: {
+          create: {
+            status: "completed",
+            actorRole: "admin",
+            actorId: session.user.id,
+            note: parsed.data.note || "Platform confirmed the visit is done.",
+          },
+        },
+      },
+    });
+    const when = whenLabel(booking.visitDate);
+    const title = booking.property.title;
+    await Promise.all([
+      notifyBuyer(
+        booking.userId,
+        "Viewing completed",
+        `The platform confirmed your viewing of ${title}${when} is done.`,
+        booking.id
+      ),
+      notifySeller(
+        booking.property,
+        "Viewing completed",
+        `The platform confirmed the viewing of ${title}${when} is done.`
+      ),
+      booking.assignedBrokerId
+        ? createNotification(
+            booking.assignedBrokerId,
+            "Visit confirmed done",
+            `The platform confirmed ${title}${when} is complete.`,
+            "/broker/viewings"
+          )
+        : Promise.resolve(),
+    ]);
+    updateTag("bookings");
+    return { ok: true };
+  }
+
+  const lockReschedule =
+    intent === "reschedule" &&
+    (booking.status === "confirmed" || booking.status === "pending_complete");
+
+  const next: BookingStatus = lockReschedule
+    ? "confirmed"
+    : intent === "accept"
+      ? "confirmed"
+      : intent === "reschedule"
+        ? "proposed"
+        : "declined";
+  if (
+    !canAdminTransition(booking.status, next) &&
+    !(intent === "reschedule" && booking.status === "proposed") &&
+    !lockReschedule
+  ) {
     return {
       error: `A ${VIEWING_STATUS_LABELS[booking.status].toLowerCase()} viewing cannot be ${intent}ed.`,
     };
@@ -788,9 +885,17 @@ export async function adminUpdateViewingAction(
       status: next,
       ...(visitDate ? visitFields(visitDate, visitDurationMin) : {}),
       statusNote: parsed.data.note || null,
-      proposedBy: intent === "reschedule" ? "admin" : booking.proposedBy,
-      buyerAcceptedAt: intent === "reschedule" ? null : booking.buyerAcceptedAt,
-      sellerAcceptedAt: intent === "reschedule" ? null : booking.sellerAcceptedAt,
+      proposedBy: lockReschedule ? null : intent === "reschedule" ? "admin" : booking.proposedBy,
+      buyerAcceptedAt: lockReschedule
+        ? booking.buyerAcceptedAt
+        : intent === "reschedule"
+          ? null
+          : booking.buyerAcceptedAt,
+      sellerAcceptedAt: lockReschedule
+        ? booking.sellerAcceptedAt
+        : intent === "reschedule"
+          ? null
+          : booking.sellerAcceptedAt,
       events: {
         create: {
           status: next,
@@ -822,15 +927,27 @@ export async function adminUpdateViewingAction(
     await Promise.all([
       notifyBuyer(
         booking.userId,
-        "Platform offered a new time",
-        `The platform proposed a new time for ${title}${when}. Please accept or decline.`,
+        lockReschedule ? "Viewing time updated" : "Platform offered a new time",
+        lockReschedule
+          ? `The platform moved your viewing of ${title} to${when}.`
+          : `The platform proposed a new time for ${title}${when}. Please accept or decline.`,
         booking.id
       ),
       notifySeller(
         booking.property,
-        "Platform offered a new time",
-        `The platform proposed a new time for ${title}${when}. Please accept or decline.`
+        lockReschedule ? "Viewing time updated" : "Platform offered a new time",
+        lockReschedule
+          ? `The platform moved the viewing of ${title} to${when}.`
+          : `The platform proposed a new time for ${title}${when}. Please accept or decline.`
       ),
+      booking.assignedBrokerId
+        ? createNotification(
+            booking.assignedBrokerId,
+            "Viewing time updated",
+            `The platform moved ${title}${when}.`,
+            "/broker/viewings"
+          )
+        : Promise.resolve(),
     ]);
   } else {
     await Promise.all([

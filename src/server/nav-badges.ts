@@ -25,7 +25,9 @@ export async function navBadges(userId: string, role: Role) {
   badges["/dashboard/messages"] = replies;
 
   if (role === "ADMIN") {
-    badges["/admin/bookings"] = await prisma.booking.count({ where: { status: "pending_admin" } });
+    badges["/admin/bookings"] = await prisma.booking.count({
+      where: { status: { in: ["pending_admin", "pending_complete"] } },
+    });
   }
 
   if (role !== "USER") {

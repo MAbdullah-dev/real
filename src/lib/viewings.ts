@@ -5,6 +5,7 @@ export const VIEWING_STATUS_LABELS: Record<BookingStatus, string> = {
   proposed: "New time offered",
   pending_admin: "Awaiting platform",
   confirmed: "Confirmed",
+  pending_complete: "Awaiting platform close-out",
   declined: "Declined",
   cancelled: "Cancelled",
   completed: "Completed",
@@ -16,10 +17,11 @@ export const VIEWING_STATUS_HINTS: Record<BookingStatus, string> = {
   pending: "The owner is reviewing the time you picked from their availability.",
   proposed: "A different time is on offer — accept it or pick another available window.",
   pending_admin: "You and the owner agreed. The platform is reviewing the viewing.",
-  confirmed: "Locked in. Arrive a few minutes early with photo ID.",
+  confirmed: "Locked in. Arrive a few minutes early with photo ID. To change the time, ask the platform — you can still cancel.",
+  pending_complete: "The visit was reported done. The platform is confirming it.",
   declined: "This viewing was declined. Try a new time or ask a question.",
   cancelled: "This viewing was cancelled.",
-  completed: "Viewing done. You can still message the listing contact.",
+  completed: "Viewing done. This record stays in your list for two days.",
   no_show: "Marked as missed. Request a new time if you still want to view.",
 };
 
@@ -31,6 +33,7 @@ export const VIEWING_STATUS_TONE: Record<
   proposed: "accent",
   pending_admin: "accent",
   confirmed: "default",
+  pending_complete: "accent",
   declined: "outline",
   cancelled: "outline",
   completed: "outline",
@@ -54,7 +57,25 @@ export const OPEN_VIEWING_STATUSES: BookingStatus[] = [
   "proposed",
   "pending_admin",
   "confirmed",
+  "pending_complete",
 ];
+
+/** Completed visits leave buyer/seller/broker lists after this. Admin keeps them. */
+export const COMPLETED_PARTY_MS = 2 * 24 * 3_600_000;
+
+export function partyCanSeeViewing(
+  status: BookingStatus,
+  completedAt: Date | null | undefined,
+  now = Date.now()
+) {
+  if (status !== "completed") return true;
+  if (!completedAt) return false;
+  return now - completedAt.valueOf() < COMPLETED_PARTY_MS;
+}
+
+export function timeIsLocked(status: BookingStatus) {
+  return status === "confirmed" || status === "pending_complete" || status === "completed";
+}
 
 export function isViewingOpen(status: BookingStatus) {
   return !TERMINAL_VIEWING_STATUSES.includes(status);
@@ -103,14 +124,14 @@ export function formatInZone(
   }
 }
 
-/** Agency hosts may still confirm a viewing themselves. */
+/** Agency hosts may still confirm a viewing themselves. After confirm, only cancel / report done. */
 export const HOST_TRANSITIONS: Record<string, BookingStatus[]> = {
   confirmed: ["pending", "proposed"],
-  proposed: ["pending", "confirmed"],
+  proposed: ["pending"],
   declined: ["pending", "proposed"],
-  completed: ["confirmed"],
+  pending_complete: ["confirmed"],
   no_show: ["confirmed"],
-  cancelled: ["pending", "proposed", "confirmed"],
+  cancelled: ["pending", "proposed", "confirmed", "pending_complete"],
 };
 
 export function canHostTransition(from: BookingStatus, to: BookingStatus) {
@@ -120,10 +141,10 @@ export function canHostTransition(from: BookingStatus, to: BookingStatus) {
 /** Seller listings: owner agrees first, then the platform confirms. */
 export const SELLER_TRANSITIONS: Record<string, BookingStatus[]> = {
   pending_admin: ["pending", "proposed"],
-  proposed: ["pending", "pending_admin", "confirmed"],
+  proposed: ["pending", "pending_admin"],
   declined: ["pending", "proposed", "pending_admin"],
-  cancelled: ["pending", "proposed", "pending_admin", "confirmed"],
-  completed: ["confirmed"],
+  cancelled: ["pending", "proposed", "pending_admin", "confirmed", "pending_complete"],
+  pending_complete: ["confirmed"],
   no_show: ["confirmed"],
 };
 
@@ -132,10 +153,11 @@ export function canSellerTransition(from: BookingStatus, to: BookingStatus) {
 }
 
 export const ADMIN_TRANSITIONS: Record<string, BookingStatus[]> = {
-  confirmed: ["pending_admin"],
-  proposed: ["pending_admin", "confirmed"],
+  confirmed: ["pending_admin", "confirmed", "pending_complete"],
+  proposed: ["pending_admin"],
   declined: ["pending_admin", "proposed"],
-  cancelled: ["pending_admin", "confirmed"],
+  cancelled: ["pending_admin", "confirmed", "pending_complete"],
+  completed: ["pending_complete", "confirmed"],
 };
 
 export function canAdminTransition(from: BookingStatus, to: BookingStatus) {

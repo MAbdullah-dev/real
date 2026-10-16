@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCompleteAuth } from "@/components/auth/complete-auth";
+import { RedirectIfSignedIn } from "@/components/auth/redirect-if-signed-in";
 import { registerAction } from "@/server/actions/auth";
 
 const schema = z
@@ -37,10 +38,12 @@ export function RegisterForm() {
   });
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const completeAuth = useCompleteAuth();
   const errors = form.formState.errors;
 
   return (
     <Card className="glass-panel rounded-3xl border-white/20 shadow-[var(--shadow-soft)]">
+      <RedirectIfSignedIn />
       <CardHeader>
         <CardTitle className="text-2xl text-primary-foreground">Create your account</CardTitle>
         <CardDescription className="text-primary-foreground/70">
@@ -54,16 +57,16 @@ export function RegisterForm() {
           onSubmit={form.handleSubmit((values) => {
             setError(null);
             startTransition(async () => {
-              const result = await registerAction({
-                name: values.name,
-                email: values.email,
-                password: values.password,
-                callbackUrl,
-              });
-              if (result.error) {
-                setError(result.error);
-                toast.error(result.error);
-              }
+              await completeAuth(
+                await registerAction({
+                  name: values.name,
+                  email: values.email,
+                  password: values.password,
+                  callbackUrl,
+                }),
+                setError,
+                { email: values.email, password: values.password }
+              );
             });
           })}
         >

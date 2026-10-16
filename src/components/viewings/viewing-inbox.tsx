@@ -2,6 +2,7 @@ import { CalendarRange, Mail, Phone } from "lucide-react";
 import Link from "next/link";
 
 import {
+  ViewingContactCard,
   ViewingMeta,
   ViewingStatusBadge,
   ViewingTimeline,
@@ -95,23 +96,48 @@ function HostViewingCard({
           <ViewingStatusBadge status={viewing.status} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <span className="font-medium">{viewing.name}</span>
-          <a
-            href={`mailto:${viewing.email}`}
-            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-          >
-            <Mail className="h-3.5 w-3.5" aria-hidden />
-            {viewing.email}
-          </a>
-          <a
-            href={telHref(viewing.phone)}
-            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-          >
-            <Phone className="h-3.5 w-3.5" aria-hidden />
-            {viewing.phone}
-          </a>
-        </div>
+        {role === "BROKER" ? (
+          <div className="flex flex-wrap gap-3">
+            <ViewingContactCard
+              label="Buyer"
+              name={viewing.name}
+              email={viewing.email}
+              phone={viewing.phone}
+            />
+            <ViewingContactCard
+              label={viewing.property.seller ? "Seller" : "Agency"}
+              name={
+                viewing.property.seller?.name ??
+                viewing.property.agency?.name ??
+                viewing.property.agent.name
+              }
+              email={viewing.property.seller?.email ?? null}
+              phone={
+                viewing.property.seller?.sellerProfile?.phone ??
+                viewing.property.agency?.phone ??
+                null
+              }
+            />
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <span className="font-medium">{viewing.name}</span>
+            <a
+              href={`mailto:${viewing.email}`}
+              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+            >
+              <Mail className="h-3.5 w-3.5" aria-hidden />
+              {viewing.email}
+            </a>
+            <a
+              href={telHref(viewing.phone)}
+              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+            >
+              <Phone className="h-3.5 w-3.5" aria-hidden />
+              {viewing.phone}
+            </a>
+          </div>
+        )}
 
         <ViewingMeta
           slots={viewing.slots}

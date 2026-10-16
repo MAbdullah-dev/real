@@ -58,7 +58,8 @@ async function ViewingRequest({
     <>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
         {CONTACT_KIND_BLURBS[contact.kind]} Offer up to three windows that suit you; you will
-        get a notification as soon as they reply, and you can reschedule or cancel any time.
+        get a notification as soon as they reply. You can cancel after it is confirmed; only the
+        platform can change the time.
       </p>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_minmax(0,340px)] lg:items-start">

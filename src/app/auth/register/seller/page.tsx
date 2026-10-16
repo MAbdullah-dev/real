@@ -4,13 +4,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCompleteAuth } from "@/components/auth/complete-auth";
+import { RedirectIfSignedIn } from "@/components/auth/redirect-if-signed-in";
 import { registerAction } from "@/server/actions/auth";
 
 const schema = z.object({
@@ -30,9 +31,11 @@ export default function SellerRegisterPage() {
   });
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const completeAuth = useCompleteAuth();
 
   return (
     <Card className="glass-panel rounded-3xl border-white/20 shadow-[var(--shadow-soft)]">
+      <RedirectIfSignedIn />
       <CardHeader>
         <CardTitle className="text-2xl text-primary-foreground">Sell your property</CardTitle>
         <CardDescription className="text-primary-foreground/70">
@@ -46,18 +49,18 @@ export default function SellerRegisterPage() {
           onSubmit={form.handleSubmit((values) => {
             setError(null);
             startTransition(async () => {
-              const result = await registerAction({
-                name: values.name,
-                email: values.email,
-                password: values.password,
-                phone: values.phone,
-                asSeller: true,
-                acceptTerms: values.acceptTerms,
-              });
-              if (result.error) {
-                setError(result.error);
-                toast.error(result.error);
-              }
+              await completeAuth(
+                await registerAction({
+                  name: values.name,
+                  email: values.email,
+                  password: values.password,
+                  phone: values.phone,
+                  asSeller: true,
+                  acceptTerms: values.acceptTerms,
+                }),
+                setError,
+                { email: values.email, password: values.password }
+              );
             });
           })}
         >

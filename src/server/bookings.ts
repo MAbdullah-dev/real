@@ -4,12 +4,14 @@ import type { BookingStatus, Prisma, Role } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import {
+  COMPLETED_PARTY_MS,
   OPEN_VIEWING_STATUSES,
   bookingOccupies,
   durationForStart,
   generateAllSlots,
   isViewingOpen,
   occupancyConflicts,
+  partyCanSeeViewing,
   resolveWindows,
   visitEndOf,
 } from "@/lib/viewings";
@@ -33,18 +35,42 @@ const bookingInclude = {
       sellerId: true,
       agent: { select: { id: true, name: true, image: true } },
       agency: { select: { name: true, phone: true } },
+      seller: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          sellerProfile: { select: { phone: true } },
+        },
+      },
       images: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
     },
   },
   events: { orderBy: { createdAt: "asc" } },
-  assignedBroker: { select: { id: true, name: true, email: true } },
+  assignedBroker: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      brokerProfile: { select: { phone: true } },
+    },
+  },
 } satisfies Prisma.BookingInclude;
+
+function partyVisibleWhere(now = Date.now()): Prisma.BookingWhereInput {
+  return {
+    OR: [
+      { status: { not: "completed" } },
+      { completedAt: { gte: new Date(now - COMPLETED_PARTY_MS) } },
+    ],
+  };
+}
 
 export type ViewingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 
 export function listUserViewings(userId: string) {
   return prisma.booking.findMany({
-    where: { userId },
+    where: { userId, AND: [partyVisibleWhere()] },
     include: bookingInclude,
     orderBy: { createdAt: "desc" },
   });
@@ -124,11 +150,13 @@ export async function listBuyerAvailability(propertyId: string, posted: Date[] |
   };
 }
 
-export function getUserViewing(id: string, userId: string) {
-  return prisma.booking.findFirst({
+export async function getUserViewing(id: string, userId: string) {
+  const row = await prisma.booking.findFirst({
     where: { id, userId },
     include: bookingInclude,
   });
+  if (!row || !partyCanSeeViewing(row.status, row.completedAt)) return null;
+  return row;
 }
 
 export function listUserVisits(userId: string) {
@@ -167,9 +195,11 @@ export async function listHostViewings(
   role: Role,
   status?: BookingStatus
 ) {
+  const keepOldRecords = role === "ADMIN";
+  const visible = keepOldRecords ? {} : partyVisibleWhere();
   if (role === "BROKER") {
     return prisma.booking.findMany({
-      where: { assignedBrokerId: userId, ...(status ? { status } : {}) },
+      where: { assignedBrokerId: userId, ...(status ? { status } : {}), ...visible },
       include: bookingInclude,
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     });
@@ -177,7 +207,7 @@ export async function listHostViewings(
   const property = await hostPropertyScope(userId, role);
   if (!property) return [];
   return prisma.booking.findMany({
-    where: { property, ...(status ? { status } : {}) },
+    where: { property, ...(status ? { status } : {}), ...visible },
     include: bookingInclude,
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
   });
@@ -207,7 +237,7 @@ export async function countHostEnquiries(userId: string, role: Role, status?: "o
   return prisma.lead.count({ where: { property, ...(status ? { status } : {}) } });
 }
 
-export function listAllBookings(take = 100) {
+export function listAllBookings(take = 500) {
   return prisma.booking.findMany({
     include: bookingInclude,
     orderBy: { createdAt: "desc" },

@@ -26,8 +26,8 @@ type HostAction =
   | "confirmed"
   | "proposed"
   | "pending_admin"
+  | "pending_complete"
   | "declined"
-  | "completed"
   | "no_show"
   | "cancelled";
 
@@ -78,8 +78,7 @@ export function HostViewingControls({
   }
 
   const canSchedule =
-    flow !== "broker" &&
-    (status === "pending" || status === "proposed" || status === "confirmed");
+    flow !== "broker" && (status === "pending" || status === "proposed");
   const pastDue = Boolean(visitDate && new Date(visitDate) <= new Date());
   const waitingOnBuyer = flow === "seller" && status === "proposed" && proposedBy !== "admin";
   const adminOffer = flow === "seller" && status === "proposed" && proposedBy === "admin";
@@ -222,6 +221,12 @@ export function HostViewingControls({
           <p className="text-sm text-muted-foreground">Waiting for the buyer to accept your time.</p>
         ) : null}
 
+        {status === "pending_complete" ? (
+          <p className="text-sm text-muted-foreground">
+            Visit reported done. Waiting for the platform to confirm.
+          </p>
+        ) : null}
+
         {status === "confirmed" && pastDue ? (
           <>
             <Button
@@ -229,9 +234,9 @@ export function HostViewingControls({
               variant="outline"
               className="rounded-full"
               disabled={pending}
-              onClick={() => run("completed")}
+              onClick={() => run("pending_complete")}
             >
-              Mark complete
+              Mark visit done
             </Button>
             <Button
               size="sm"
@@ -257,7 +262,7 @@ export function HostViewingControls({
           </Button>
         ) : null}
 
-        {status === "confirmed" && !pastDue ? (
+        {(status === "confirmed" || status === "pending_complete") && !pastDue ? (
           <Button
             size="sm"
             variant="ghost"
