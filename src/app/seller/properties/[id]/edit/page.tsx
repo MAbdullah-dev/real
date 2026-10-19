@@ -8,7 +8,7 @@ import { getPropertyForEdit } from "@/server/properties";
 import { requireActiveSellerForWrite } from "@/server/seller";
 
 async function EditSellerPropertyContent({ id }: { id: string }) {
-  const { session, profile, isAdmin } = await requireActiveSellerForWrite();
+  const { session, isAdmin } = await requireActiveSellerForWrite();
   const property = await getPropertyForEdit(id);
   if (!property) notFound();
   if (!isAdmin && property.sellerId !== session.user.id) notFound();

@@ -39,8 +39,8 @@ export function RequestViewingForm({
   openSlots: OpenSlot[];
 }) {
   const lockedToAvailability = openSlots.length > 0 || contactKind === "seller";
-  const [day, setDay] = React.useState("");
-  const [picked, setPicked] = React.useState("");
+  const [rawDay, setDay] = React.useState("");
+  const [rawPicked, setPicked] = React.useState("");
   const [slots, setSlots] = React.useState<string[]>([""]);
   const [phone, setPhone] = React.useState("");
   const [mode, setMode] = React.useState("in_person");
@@ -56,13 +56,10 @@ export function RequestViewingForm({
     return set;
   }, [openSlots, timezone]);
 
+  const day = days.has(rawDay) ? rawDay : "";
+  const selected = openSlots.find((slot) => slot.start === rawPicked);
+  const picked = selected ? rawPicked : "";
   const slotsForDay = openSlots.filter((slot) => dayKey(slot.start, timezone) === day);
-  const selected = openSlots.find((slot) => slot.start === picked);
-
-  React.useEffect(() => {
-    if (day && !days.has(day)) setDay("");
-    if (picked && !openSlots.some((slot) => slot.start === picked)) setPicked("");
-  }, [day, days, openSlots, picked]);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();

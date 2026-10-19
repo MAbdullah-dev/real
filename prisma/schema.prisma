@@ -333,6 +333,8 @@ model PropertyImage {
   isCover    Boolean  @default(false)
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
 }
 
 /** Seller/agency “I’m free this afternoon” range. Slots are generated, not stored. */

@@ -19,11 +19,11 @@ export async function mergeWishlist(ids: string[]): Promise<string[]> {
       where: { id: { in: unique }, status: "published" },
       select: { id: true },
     });
-    await prisma.wishlistItem.createMany({
+    const { count } = await prisma.wishlistItem.createMany({
       data: properties.map((p) => ({ userId: session.user.id, propertyId: p.id })),
       skipDuplicates: true,
     });
-    updateTag("wishlist");
+    if (count > 0) updateTag("wishlist");
   }
 
   const saved = await prisma.wishlistItem.findMany({

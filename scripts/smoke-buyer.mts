@@ -108,7 +108,7 @@ const viewings = await page("/dashboard/viewings");
 has(viewings, "BR-1024", "the buyer's viewing list");
 
 const detail = await page("/dashboard/viewings/BR-1024");
-has(detail, "Awaiting reply", "the viewing detail page");
+has(detail, "Awaiting seller", "the viewing detail page");
 has(detail, "Viewing requested", "the viewing detail timeline");
 
 await signIn("amelia@estate-elite.local");
@@ -118,7 +118,7 @@ await signIn("amelia@estate-elite.local");
 const stolen = await visit("/dashboard/viewings/BR-1024");
 const stolenBody = stolen.status === 200 ? await stolen.text() : "";
 assert.ok(
-  !stolenBody.includes("Guest Buyer") && !stolenBody.includes("Awaiting reply"),
+  !stolenBody.includes("Guest Buyer") && !stolenBody.includes("Awaiting seller"),
   "another account saw the buyer's viewing"
 );
 
