@@ -8,6 +8,7 @@ import { propertiesByCategory, toProperty, type PropertyWithAgent } from "@/serv
 import type { PropertyFilterParams, PropertySort } from "@/server/property-filters";
 import { resolveWindows, toDatetimeLocalValue } from "@/lib/viewings";
 import type { PROPERTY_CATEGORIES } from "@/server/property-input";
+import { isPublicListingStatus, PUBLIC_LISTING_STATUS } from "@/server/property-review";
 
 type PropertyFormCategories = (typeof PROPERTY_CATEGORIES)[number][];
 
@@ -42,7 +43,7 @@ export async function listPublishedProperties() {
   cacheLife("hours");
 
   const rows = await prisma.property.findMany({
-    where: { status: "published" },
+    where: { status: PUBLIC_LISTING_STATUS },
     include: propertyInclude,
     orderBy: { rating: "desc" },
   });
@@ -58,7 +59,7 @@ export async function getPropertyBySlug(slug: string) {
     where: { slug },
     include: propertyInclude,
   });
-  if (!row || row.status !== "published") return undefined;
+  if (!row || !isPublicListingStatus(row.status)) return undefined;
   return toProperty(row);
 }
 
@@ -71,7 +72,7 @@ export async function getPropertyById(id: string) {
     where: { id },
     include: propertyInclude,
   });
-  if (!row || row.status !== "published") return undefined;
+  if (!row || !isPublicListingStatus(row.status)) return undefined;
   return toProperty(row);
 }
 
@@ -88,7 +89,7 @@ export async function getSimilarProperties(property: Property, limit = 3) {
 }
 
 export async function filterProperties(params: PropertyFilterParams) {
-  const where: Prisma.PropertyWhereInput = { status: "published" };
+  const where: Prisma.PropertyWhereInput = { status: PUBLIC_LISTING_STATUS };
 
   if (params.purpose && params.purpose !== "all") {
     where.purpose = params.purpose;
@@ -158,6 +159,11 @@ export async function listAgentProperties(opts?: {
     include: {
       ...propertyInclude,
       _count: { select: { bookings: true, leads: true } },
+      reviewActions: {
+        orderBy: { createdAt: "desc" as const },
+        take: 1,
+        select: { action: true, reason: true, createdAt: true },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -167,7 +173,15 @@ export async function listAgentProperties(opts?: {
     agentName: row.agent.name ?? "Unassigned",
     bookings: row._count.bookings,
     leads: row._count.leads,
+    createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    latestReview: row.reviewActions[0]
+      ? {
+          action: row.reviewActions[0].action,
+          reason: row.reviewActions[0].reason,
+          createdAt: row.reviewActions[0].createdAt,
+        }
+      : null,
   }));
 }
 
@@ -182,6 +196,16 @@ export async function getPropertyForEdit(id: string) {
     include: {
       images: { orderBy: { sortOrder: "asc" } },
       availabilityWindows: { orderBy: { start: "asc" } },
+      reviewActions: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          action: true,
+          reason: true,
+          createdAt: true,
+          admin: { select: { name: true, email: true } },
+        },
+      },
     },
   });
   if (!row) return undefined;
@@ -195,6 +219,13 @@ export async function getPropertyForEdit(id: string) {
     sellerId: row.sellerId,
     slug: row.slug,
     status: row.status,
+    reviewHistory: row.reviewActions.map((entry) => ({
+      id: entry.id,
+      action: entry.action,
+      reason: entry.reason,
+      createdAt: entry.createdAt,
+      adminName: entry.admin?.name || entry.admin?.email || null,
+    })),
     values: {
       title: row.title,
       description: row.description,
@@ -231,13 +262,13 @@ export async function listPublishedPropertyParams() {
   cacheLife("hours");
 
   return prisma.property.findMany({
-    where: { status: "published" },
+    where: { status: PUBLIC_LISTING_STATUS },
     select: { id: true, slug: true },
   });
 }
 
 export async function countPublishedProperties() {
-  return prisma.property.count({ where: { status: "published" } });
+  return prisma.property.count({ where: { status: PUBLIC_LISTING_STATUS } });
 }
 
 export async function listWishlistProperties(userId: string) {
@@ -250,6 +281,6 @@ export async function listWishlistProperties(userId: string) {
   });
 
   return rows
-    .filter((row) => row.property.status === "published")
+    .filter((row) => isPublicListingStatus(row.property.status))
     .map((row) => toProperty(row.property));
 }

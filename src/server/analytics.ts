@@ -3,6 +3,7 @@ import "server-only";
 import { connection } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { PUBLIC_LISTING_STATUS } from "@/server/property-review";
 
 function startOfUtcDay(date = new Date()) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -65,7 +66,7 @@ export async function getDailyStats(days = 14, agencyId?: string): Promise<Daily
 
 export async function getAgentKpis(agencyId: string) {
   const [active, bookings, pendingBookings, leads, totals] = await Promise.all([
-    prisma.property.count({ where: { agencyId, status: "published" } }),
+    prisma.property.count({ where: { agencyId, status: PUBLIC_LISTING_STATUS } }),
     prisma.booking.count({ where: { property: { agencyId } } }),
     prisma.booking.count({ where: { property: { agencyId }, status: "pending" } }),
     prisma.lead.count({ where: { property: { agencyId } } }),
@@ -94,7 +95,7 @@ export async function getAdminKpis() {
       prisma.user.count(),
       prisma.user.count({ where: { role: "BROKER" } }),
       prisma.user.count({ where: { role: "AGENCY" } }),
-      prisma.property.count({ where: { status: "published" } }),
+      prisma.property.count({ where: { status: PUBLIC_LISTING_STATUS } }),
       prisma.property.count({ where: { status: "pending_review" } }),
       prisma.booking.count(),
       prisma.subscription.findMany({

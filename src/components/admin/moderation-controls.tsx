@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
 
+import { PropertyReviewActions } from "@/components/admin/property-review-actions";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -15,7 +16,6 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  moderatePropertyAction,
   reviewCredentialAction,
   setAdminSettingAction,
   setAgencyStatusAction,
@@ -26,56 +26,7 @@ import {
 import { CREDENTIAL_LABELS } from "@/lib/agency-labels";
 
 export function PropertyModerationControls({ id, status }: { id: string; status: string }) {
-  const router = useRouter();
-  const [pending, startTransition] = React.useTransition();
-
-  function update(next: "published" | "rejected" | "pending_review") {
-    startTransition(async () => {
-      const result = await moderatePropertyAction({ id, status: next });
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Listing updated");
-      router.refresh();
-    });
-  }
-
-  return (
-    <div className="flex flex-wrap justify-end gap-2">
-      {status !== "published" ? (
-        <Button
-          size="sm"
-          className="rounded-full"
-          disabled={pending}
-          onClick={() => update("published")}
-        >
-          Publish
-        </Button>
-      ) : (
-        <Button
-          size="sm"
-          variant="outline"
-          className="rounded-full"
-          disabled={pending}
-          onClick={() => update("pending_review")}
-        >
-          Unpublish
-        </Button>
-      )}
-      {status !== "rejected" ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="rounded-full"
-          disabled={pending}
-          onClick={() => update("rejected")}
-        >
-          Reject
-        </Button>
-      ) : null}
-    </div>
-  );
+  return <PropertyReviewActions id={id} status={status} size="sm" />;
 }
 
 export function UserRoleSelect({

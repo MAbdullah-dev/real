@@ -4,6 +4,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { toProperty } from "@/server/mappers";
 import { propertyInclude } from "@/server/properties";
+import { PUBLIC_LISTING_STATUS } from "@/server/property-review";
 
 /** Public profile ids for agencies (owner) and active independent brokers. */
 export async function listPublicAgentIds() {
@@ -45,7 +46,7 @@ export async function getPublicAgent(id: string) {
     if (!membership || membership.agency.status !== "active") return undefined;
 
     const properties = await prisma.property.findMany({
-      where: { agencyId: membership.agencyId, status: "published" },
+      where: { agencyId: membership.agencyId, status: PUBLIC_LISTING_STATUS },
       include: propertyInclude,
       orderBy: { rating: "desc" },
     });

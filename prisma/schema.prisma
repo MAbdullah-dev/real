@@ -27,6 +27,14 @@ enum PropertyStatus {
   rejected
 }
 
+/** Append-only property review decisions. Not a second status on Property. */
+enum PropertyReviewKind {
+  approved
+  rejected
+  unpublished
+  resubmitted
+}
+
 enum BookingStatus {
   pending
   proposed
@@ -115,6 +123,7 @@ model User {
   leadMessages   LeadMessage[]
   wishlist       WishlistItem[]
   notifications  Notification[]
+  propertyReviewActions PropertyReviewAction[] @relation("PropertyReviewDecisions")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -310,11 +319,12 @@ model Property {
   agentId String
   agent   User   @relation("ManagedProperties", fields: [agentId], references: [id])
 
-  images     PropertyImage[]
-  bookings   Booking[]
-  leads      Lead[]
-  wishlist   WishlistItem[]
-  dailyStats PropertyViewDaily[]
+  images        PropertyImage[]
+  bookings      Booking[]
+  leads         Lead[]
+  wishlist      WishlistItem[]
+  dailyStats    PropertyViewDaily[]
+  reviewActions PropertyReviewAction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -324,6 +334,21 @@ model Property {
   @@index([agentId])
   @@index([agencyId])
   @@index([sellerId])
+}
+
+/** One row per approve, reject, unpublish, or resubmit. Reasons live here, not on Property. */
+model PropertyReviewAction {
+  id         String             @id @default(cuid())
+  propertyId String
+  property   Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  /** Admin who decided. Null when the owner resubmits. */
+  adminId    String?
+  admin      User?              @relation("PropertyReviewDecisions", fields: [adminId], references: [id], onDelete: SetNull)
+  action     PropertyReviewKind
+  reason     String?            @db.Text
+  createdAt  DateTime           @default(now())
+
+  @@index([propertyId, createdAt])
 }
 
 model PropertyImage {

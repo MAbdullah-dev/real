@@ -11,6 +11,7 @@ import { hostPropertyScope } from "@/server/bookings";
 import { requireAuth } from "@/server/auth";
 import { usersForListingRequests } from "@/server/listing-ownership";
 import { createNotification } from "@/server/notifications";
+import { isPublicListingStatus } from "@/server/property-review";
 import { hostEnquiriesHref } from "@/server/roles";
 
 export type LeadActionResult = { ok?: true; id?: string; error?: string };
@@ -51,7 +52,7 @@ export async function createLeadAction(
     where: { id: values.propertyId },
     select: { id: true, title: true, status: true, agentId: true, sellerId: true, agencyId: true },
   });
-  if (!property || property.status !== "published") {
+  if (!property || !isPublicListingStatus(property.status)) {
     return { error: "That listing is no longer available." };
   }
   if (

@@ -1,16 +1,16 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { AgentStatus, Prisma, PropertyStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/server/auth";
 import {
   assertCanSubmitListings,
   requireActiveAgencyForWrite,
   requireAgency,
 } from "@/server/agency";
-import { isSettingEnabled } from "@/server/admin";
 import {
   DEFAULT_BUFFER_MIN,
   DEFAULT_DURATION_MIN,
@@ -27,6 +27,8 @@ import {
   canPublishProperty,
   canSubmitProperty,
 } from "@/server/property-permissions";
+import { nextStatusOnSave, resubmitBlockReason, submittedListingStatus } from "@/server/property-review";
+import { resubmitPropertyAs } from "@/server/property-review-apply";
 import {
   getSellerListingAllowance,
   requireActiveSellerForWrite,
@@ -137,14 +139,7 @@ async function resolveAgencyStatus(
   );
   if (submitBlock) return { status: "draft", error: submitBlock };
 
-  if (requested === "published" || requested === "pending_review") {
-    if (await isSettingEnabled("autoPublishListings")) {
-      return { status: "published" };
-    }
-    return { status: "pending_review" };
-  }
-
-  return { status: requested };
+  return { status: submittedListingStatus(requested, false) };
 }
 
 async function resolveSellerStatus(
@@ -161,14 +156,7 @@ async function resolveSellerStatus(
     };
   }
 
-  if (requested === "published" || requested === "pending_review") {
-    if (await isSettingEnabled("autoPublishListings")) {
-      return { status: "published" };
-    }
-    return { status: "pending_review" };
-  }
-
-  return { status: requested };
+  return { status: submittedListingStatus(requested, false) };
 }
 
 export async function createPropertyAction(input: PropertyInput): Promise<PropertyActionResult> {
@@ -329,6 +317,7 @@ export async function updatePropertyAction(
   const values = parsed.data;
   const resolved = await resolveAgencyStatus(values.status, isAdmin, ctx.agency?.status ?? null);
   if (resolved.error && values.status !== "draft") return { error: resolved.error };
+  const status = nextStatusOnSave(existing.status, resolved.status, isAdmin);
 
   const avail = availabilityRows(values, false);
   if ("error" in avail) return { error: avail.error };
@@ -361,7 +350,7 @@ export async function updatePropertyAction(
         badges: values.badges,
         availableSlots: avail.slots,
         availabilityWindows: { create: windowCreates(avail.windows, values.availabilityWindows[0]?.timezone) },
-        status: resolved.status,
+        status,
         images: { create: imageRows(values.images) },
       },
     }),
@@ -397,8 +386,9 @@ export async function updateSellerPropertyAction(
   const values = parsed.data;
   const resolved = await resolveSellerStatus(values.status, actor);
   if (resolved.error && values.status !== "draft") return { error: resolved.error };
+  const status = nextStatusOnSave(existing.status, resolved.status, ctx.isAdmin);
 
-  const avail = availabilityRows(values, resolved.status !== "draft");
+  const avail = availabilityRows(values, status !== "draft");
   if ("error" in avail) return { error: avail.error };
   const blocked = await windowsKeepOpenBookings(id, avail.slots);
   if (blocked) return { error: blocked };
@@ -429,7 +419,7 @@ export async function updateSellerPropertyAction(
         badges: values.badges,
         availableSlots: avail.slots,
         availabilityWindows: { create: windowCreates(avail.windows, values.availabilityWindows[0]?.timezone) },
-        status: resolved.status,
+        status,
         images: { create: imageRows(values.images) },
       },
     }),
@@ -437,6 +427,51 @@ export async function updateSellerPropertyAction(
 
   revalidateProperty(existing.slug);
   revalidateProperty(slug);
+  return {};
+}
+
+export async function resubmitPropertyAction(id: string): Promise<PropertyActionResult> {
+  const session = await requireAuth();
+  const [property, membership, sellerProfile] = await Promise.all([
+    prisma.property.findUnique({
+      where: { id },
+      select: { id: true, status: true, sellerId: true, agencyId: true, slug: true },
+    }),
+    prisma.agencyMember.findUnique({
+      where: { userId: session.user.id },
+      select: { agencyId: true, agency: { select: { status: true } } },
+    }),
+    prisma.sellerProfile.findUnique({
+      where: { userId: session.user.id },
+      select: { status: true },
+    }),
+  ]);
+  if (!property) return { error: "That listing no longer exists." };
+
+  const accountStatus =
+    session.user.role === "AGENCY" ? membership?.agency.status : sellerProfile?.status;
+  const blocked = resubmitBlockReason(
+    {
+      role: session.user.role,
+      userId: session.user.id,
+      agencyId: membership?.agencyId,
+      accountStatus,
+    },
+    property
+  );
+  if (blocked) return { error: blocked };
+
+  const result = await resubmitPropertyAs(prisma, property.id);
+  if ("error" in result) return result;
+
+  revalidateProperty(result.slug);
+  revalidatePath("/admin/properties");
+  revalidatePath(`/admin/properties/${result.id}`);
+  revalidatePath("/agency/properties");
+  revalidatePath("/seller/properties");
+  revalidatePath(`/agency/properties/${result.id}/edit`);
+  revalidatePath(`/seller/properties/${result.id}/edit`);
+  revalidatePath(`/properties/${result.slug}`);
   return {};
 }
 
@@ -483,7 +518,8 @@ export async function deleteSellerPropertyAction(id: string): Promise<PropertyAc
 
   await prisma.property.delete({ where: { id } });
   revalidateProperty(existing.slug);
-  redirect("/seller/properties");
+  revalidatePath("/seller/properties");
+  return {};
 }
 
 /** Used by layout to soft-gate without throwing. */

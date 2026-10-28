@@ -9,6 +9,7 @@ import { createAgencyForUser } from "@/server/agency";
 import { requireRole } from "@/server/auth";
 import { createNotification } from "@/server/notifications";
 import { slugify } from "@/server/property-input";
+import { moderatePropertyAs } from "@/server/property-review-apply";
 
 export type AdminActionResult = { ok?: true; error?: string };
 
@@ -18,46 +19,29 @@ async function requireAdmin() {
 
 /* ---------------------------------------------------------------- moderation */
 
-const moderateSchema = z.object({
-  id: z.string().min(1),
-  status: z.enum(["draft", "pending_review", "published", "rejected"]),
-  /** Optional note for the owner notification. Property has no statusNote column. */
-  note: z.string().max(2000).optional(),
-});
-
-export async function moderatePropertyAction(
-  input: z.input<typeof moderateSchema>
-): Promise<AdminActionResult> {
-  await requireAdmin();
-  const parsed = moderateSchema.safeParse(input);
-  if (!parsed.success) return { error: "Unsupported status." };
-
-  const property = await prisma.property.update({
-    where: { id: parsed.data.id },
-    data: { status: parsed.data.status },
-    select: { id: true, title: true, slug: true, agentId: true },
-  });
-
-  const copy: Record<string, string> = {
-    published: "is now live",
-    rejected: "was rejected",
-    draft: "was moved back to draft",
-    pending_review: "is queued for review",
-  };
-  const note = parsed.data.note?.trim();
-  await createNotification(
-    property.agentId,
-    "Listing status changed",
-    note
-      ? `${property.title} ${copy[parsed.data.status]}. ${note}`
-      : `${property.title} ${copy[parsed.data.status]}.`
+export async function moderatePropertyAction(input: {
+  id: string;
+  status: "pending_review" | "published" | "rejected";
+  reason?: string;
+}): Promise<AdminActionResult> {
+  const session = await requireAdmin();
+  const result = await moderatePropertyAs(
+    prisma,
+    { role: session.user.role, userId: session.user.id },
+    input
   );
+  if ("error" in result) return result;
 
   updateTag("properties");
-  updateTag(`property-${property.slug}`);
+  updateTag(`property-${result.slug}`);
   updateTag("agents");
   revalidatePath("/admin/properties");
-  revalidatePath(`/admin/properties/${property.id}`);
+  revalidatePath(`/admin/properties/${result.id}`);
+  revalidatePath("/agency/properties");
+  revalidatePath("/seller/properties");
+  revalidatePath(`/agency/properties/${result.id}/edit`);
+  revalidatePath(`/seller/properties/${result.id}/edit`);
+  revalidatePath(`/properties/${result.slug}`);
   return { ok: true };
 }
 

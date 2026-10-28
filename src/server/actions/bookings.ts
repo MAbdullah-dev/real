@@ -33,6 +33,7 @@ import { hostPropertyScope } from "@/server/bookings";
 import { requireAuth, requireRole } from "@/server/auth";
 import { usersForListingRequests } from "@/server/listing-ownership";
 import { createNotification } from "@/server/notifications";
+import { isPublicListingStatus } from "@/server/property-review";
 import { hostViewingsHref } from "@/server/roles";
 
 export type ViewingActionResult = { ok?: true; id?: string; error?: string };
@@ -178,7 +179,7 @@ export async function requestViewingAction(
             },
           },
         });
-        if (!property || property.status !== "published") {
+        if (!property || !isPublicListingStatus(property.status)) {
           return { error: "That listing is no longer accepting viewings." };
         }
         if (property.agentId === session.user.id || property.sellerId === session.user.id) {

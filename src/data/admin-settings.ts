@@ -2,11 +2,6 @@
 
 export const ADMIN_SETTINGS = [
   {
-    key: "autoPublishListings",
-    label: "Auto-publish listings",
-    description: "Skip manual review and publish submitted listings immediately.",
-  },
-  {
     key: "allowBrokerSignup",
     label: "Allow broker self-signup",
     description: "Let platform brokers register to handle seller-property buyers.",

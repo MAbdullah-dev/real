@@ -36,7 +36,7 @@ export function canSubmitProperty(actor: AccountGate) {
   return false;
 }
 
-/** Only admins publish. autoPublish is a platform setting, not a seller/agency right. */
+/** Only admins publish. Sellers and agencies submit listings into review. */
 export function canPublishProperty(actor: AccountGate) {
   return actor.role === "ADMIN";
 }

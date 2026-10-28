@@ -204,6 +204,16 @@ export async function getAdminProperty(id: string) {
         orderBy: { start: "asc" },
         select: { start: true, end: true, durationMin: true, bufferMin: true },
       },
+      reviewActions: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          action: true,
+          reason: true,
+          createdAt: true,
+          admin: { select: { name: true, email: true } },
+        },
+      },
       _count: { select: { bookings: true, leads: true } },
     },
   });
@@ -226,6 +236,13 @@ export async function getAdminProperty(id: string) {
     ...row,
     ownerKind,
     ownerName,
+    reviewHistory: row.reviewActions.map((entry) => ({
+      id: entry.id,
+      action: entry.action,
+      reason: entry.reason,
+      createdAt: entry.createdAt,
+      adminName: entry.admin?.name || entry.admin?.email || null,
+    })),
   };
 }
 

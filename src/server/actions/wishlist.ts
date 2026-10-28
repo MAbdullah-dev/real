@@ -4,6 +4,7 @@ import { updateTag } from "next/cache";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { PUBLIC_LISTING_STATUS } from "@/server/property-review";
 
 /**
  * Folds anything saved while signed out into the account, then returns the
@@ -16,7 +17,7 @@ export async function mergeWishlist(ids: string[]): Promise<string[]> {
   const unique = [...new Set(ids)].slice(0, 100);
   if (unique.length > 0) {
     const properties = await prisma.property.findMany({
-      where: { id: { in: unique }, status: "published" },
+      where: { id: { in: unique }, status: PUBLIC_LISTING_STATUS },
       select: { id: true },
     });
     const { count } = await prisma.wishlistItem.createMany({

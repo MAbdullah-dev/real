@@ -101,6 +101,7 @@ export function PropertyForm({
   canPublish,
   uploadsEnabled,
   variant = "agency",
+  reviewLocked = false,
 }: {
   mode: "create" | "edit";
   propertyId?: string;
@@ -108,6 +109,8 @@ export function PropertyForm({
   canPublish: boolean;
   uploadsEnabled: boolean;
   variant?: "agency" | "seller";
+  /** Rejected listings stay rejected until the owner requests review. */
+  reviewLocked?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
@@ -466,18 +469,20 @@ export function PropertyForm({
       <FormSection
         title="Publishing"
         description={
-          canPublish
-            ? "Choose whether this listing stays a draft, goes to review, or goes live."
-            : "An admin publishes listings after review. You can save a draft or submit for review."
+          reviewLocked
+            ? "This listing was rejected. Saving keeps it rejected. Request review when the issues are fixed."
+            : canPublish
+              ? "Choose whether this listing stays a draft, goes to review, or goes live."
+              : "An admin publishes listings after review. You can save a draft or submit for review."
         }
       >
-        <div className="max-w-md">
+        <div className={reviewLocked ? "hidden" : "max-w-md"}>
           <Controller
             control={form.control}
             name="status"
             render={({ field }) => (
               <Field label="Status" error={errors.status?.message}>
-                <Select value={field.value} onValueChange={field.onChange} disabled={busy}>
+                <Select value={field.value} onValueChange={field.onChange} disabled={busy || reviewLocked}>
                   <SelectTrigger aria-label="Listing status">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>

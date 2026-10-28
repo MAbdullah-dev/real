@@ -13,6 +13,7 @@ import { Suspense, type ReactNode } from "react";
 
 import { AdminPropertyGallery } from "@/components/admin/admin-property-gallery";
 import { AdminPropertyReviewPanel } from "@/components/admin/admin-property-review-panel";
+import { PropertyReviewHistory } from "@/components/property/property-review-history";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -238,6 +239,21 @@ async function PropertyDetail({ id }: { id: string }) {
 
         <aside className="space-y-6 xl:sticky xl:top-24">
           <AdminPropertyReviewPanel id={property.id} status={property.status} />
+
+          <section className="space-y-4 rounded-3xl border border-border/70 bg-card/70 p-5 sm:p-6">
+            <div>
+              <h2 className="text-base font-semibold tracking-tight">Review history</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Approve, reject, unpublish, and resubmit decisions for this listing.
+              </p>
+            </div>
+            <Separator />
+            {property.reviewHistory.length > 0 ? (
+              <PropertyReviewHistory actions={property.reviewHistory} />
+            ) : (
+              <p className="text-sm text-muted-foreground">No review decisions yet.</p>
+            )}
+          </section>
 
           <section className="space-y-4 rounded-3xl border border-border/70 bg-card/70 p-5 sm:p-6">
             <div className="flex items-center gap-2">

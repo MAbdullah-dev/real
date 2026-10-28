@@ -20,9 +20,13 @@ import { deletePropertyAction } from "@/server/actions/properties";
 export function DeletePropertyButton({
   id,
   title,
+  redirectTo = "/agency/properties",
+  remove = deletePropertyAction,
 }: {
   id: string;
   title?: string;
+  redirectTo?: string;
+  remove?: (id: string) => Promise<{ error?: string } | void>;
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -30,14 +34,14 @@ export function DeletePropertyButton({
 
   function confirmDelete() {
     startTransition(async () => {
-      const result = await deletePropertyAction(id);
+      const result = await remove(id);
       if (result?.error) {
         toast.error(result.error);
         return;
       }
       toast.success("Listing deleted");
       setOpen(false);
-      router.push("/agency/properties");
+      router.push(redirectTo);
       router.refresh();
     });
   }

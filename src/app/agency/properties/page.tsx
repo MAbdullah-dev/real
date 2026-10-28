@@ -3,6 +3,7 @@ import { Building2 } from "lucide-react";
 import { Suspense } from "react";
 
 import { DeletePropertyButton } from "@/components/agent/delete-property-button";
+import { RequestReviewButton } from "@/components/agent/request-review-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -28,7 +29,7 @@ const statusLabel: Record<string, string> = {
 };
 
 async function AgentPropertiesTable() {
-  const { session, agency } = await requireAgency();
+  const { session, agency, isAdmin } = await requireAgency();
   if (!agency) {
     return <p className="text-sm text-muted-foreground">Complete onboarding first.</p>;
   }
@@ -86,6 +87,9 @@ async function AgentPropertiesTable() {
                   <Button asChild variant="ghost" size="sm" className="rounded-full">
                     <Link href={`/agency/properties/${property.id}/edit`}>Edit</Link>
                   </Button>
+                  {status === "rejected" && (isAdmin || agency.status === "active") ? (
+                    <RequestReviewButton id={property.id} size="sm" />
+                  ) : null}
                   <DeletePropertyButton id={property.id} title={property.title} />
                 </div>
               </TableCell>

@@ -208,7 +208,7 @@ async function PropertiesInventory({ search }: { search: Search }) {
                 <TableHead>Owner</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead className="text-right">Price</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -263,7 +263,7 @@ async function PropertiesInventory({ search }: { search: Search }) {
                   <TableCell className="text-right tabular-nums">
                     {formatPrice(item.price)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     <Badge
                       variant={
                         item.status === "published"
@@ -272,6 +272,7 @@ async function PropertiesInventory({ search }: { search: Search }) {
                             ? "accent"
                             : "secondary"
                       }
+                      className="whitespace-nowrap"
                     >
                       {STATUS_LABEL[item.status] ?? item.status}
                     </Badge>
@@ -339,8 +340,8 @@ export default async function AdminPropertiesPage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Properties</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Browse every agency and seller listing, then publish, unpublish, or reject when review is
-          needed.
+          Browse every agency and seller listing. Pending listings can be approved or rejected.
+          Published listings can be unpublished back into review.
         </p>
       </div>
       <Suspense key={suspenseKey} fallback={<Skeleton className="h-96 w-full rounded-3xl" />}>

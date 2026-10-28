@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { uploadsConfigured } from "@/app/api/uploadthing/core";
 import { DeletePropertyButton } from "@/components/agent/delete-property-button";
+import { ListingReviewPanel } from "@/components/agent/listing-review-panel";
 import { PropertyForm } from "@/components/agent/property-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,12 +39,19 @@ async function EditPropertyContent({ id }: { id: string }) {
         ) : null}
         <DeletePropertyButton id={record.id} />
       </div>
+      <ListingReviewPanel
+        propertyId={record.id}
+        status={record.status}
+        actions={record.reviewHistory}
+        canRequest={isAdmin || agency?.status === "active"}
+      />
       <PropertyForm
         mode="edit"
         propertyId={record.id}
         defaultValues={record.values}
         canPublish={isAdmin}
         uploadsEnabled={uploadsConfigured}
+        reviewLocked={record.status === "rejected"}
       />
     </>
   );
