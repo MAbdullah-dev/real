@@ -3,11 +3,9 @@ import "server-only";
 import type { AgentStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 
+import { LISTING_LIMIT_STATUSES, SELLER_FREE_LISTING_LIMIT } from "@/data/plans";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/server/auth";
-
-/** Sellers without a paid plan may keep this many live listings. */
-export const SELLER_FREE_LISTING_LIMIT = 3;
 
 export async function createSellerProfileForUser(
   userId: string,
@@ -68,7 +66,7 @@ export async function getSellerListingAllowance(userId: string) {
   const used = await prisma.property.count({
     where: {
       sellerId: userId,
-      status: { in: ["draft", "pending_review", "published"] },
+      status: { in: [...LISTING_LIMIT_STATUSES] },
     },
   });
   const limit = SELLER_FREE_LISTING_LIMIT;

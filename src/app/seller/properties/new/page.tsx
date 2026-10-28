@@ -54,7 +54,7 @@ async function NewSellerPropertyContent() {
 
 export default function NewSellerPropertyPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="w-full max-w-none space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">List your property</h1>
         <p className="mt-2 text-sm text-muted-foreground">

@@ -3,8 +3,9 @@
 import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
+import { TimePicker } from "@/components/ui/time-picker";
 import {
   Select,
   SelectContent,
@@ -102,15 +103,14 @@ export function AvailabilityWindowsField({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={date}
                   disabled={disabled}
-                  className="rounded-2xl"
-                  onChange={(event) => {
-                    const nextDate = event.target.value;
+                  placeholder="Select viewing date"
+                  fromDate={new Date()}
+                  onChange={(nextDate) => {
                     patch(index, {
                       start: joinLocal(nextDate, startTime || "10:00"),
                       end: joinLocal(nextDate, endTime || "13:00"),
@@ -118,30 +118,22 @@ export function AvailabilityWindowsField({
                   }}
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Start</Label>
-                <Input
-                  type="time"
-                  step={900}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Start time</Label>
+                <TimePicker
                   value={startTime}
-                  disabled={disabled}
-                  className="rounded-2xl"
-                  onChange={(event) =>
-                    patch(index, { start: joinLocal(date, event.target.value) })
-                  }
+                  disabled={disabled || !date}
+                  placeholder="Select start"
+                  onChange={(next) => patch(index, { start: joinLocal(date, next) })}
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">End</Label>
-                <Input
-                  type="time"
-                  step={900}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">End time</Label>
+                <TimePicker
                   value={endTime}
-                  disabled={disabled}
-                  className="rounded-2xl"
-                  onChange={(event) =>
-                    patch(index, { end: joinLocal(date, event.target.value) })
-                  }
+                  disabled={disabled || !date}
+                  placeholder="Select end"
+                  onChange={(next) => patch(index, { end: joinLocal(date, next) })}
                 />
               </div>
             </div>
@@ -154,7 +146,7 @@ export function AvailabilityWindowsField({
                   disabled={disabled}
                   onValueChange={(value) => patch(index, { durationMin: Number(value) })}
                 >
-                  <SelectTrigger className="rounded-2xl">
+                  <SelectTrigger className="rounded-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -173,7 +165,7 @@ export function AvailabilityWindowsField({
                   disabled={disabled}
                   onValueChange={(value) => patch(index, { bufferMin: Number(value) })}
                 >
-                  <SelectTrigger className="rounded-2xl">
+                  <SelectTrigger className="rounded-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

@@ -53,7 +53,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
   const { id } = await params;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="w-full max-w-none space-y-6">
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Edit property</h1>
         <Button asChild variant="outline" className="rounded-full">

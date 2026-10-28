@@ -21,7 +21,12 @@ import {
   type AvailabilityWindowSpec,
 } from "@/lib/viewings";
 import { propertyInputSchema, slugify, type PropertyInput, type PropertyValues } from "@/server/property-input";
-import { canCreateProperty, canPublishProperty, canSubmitProperty } from "@/server/property-permissions";
+import {
+  canCreateProperty,
+  canDeleteProperty,
+  canPublishProperty,
+  canSubmitProperty,
+} from "@/server/property-permissions";
 import {
   getSellerListingAllowance,
   requireActiveSellerForWrite,
@@ -440,17 +445,27 @@ export async function deletePropertyAction(id: string): Promise<PropertyActionRe
 
   const existing = await prisma.property.findUnique({
     where: { id },
-    select: { id: true, slug: true, agentId: true, agencyId: true },
+    select: { id: true, slug: true, agentId: true, agencyId: true, sellerId: true },
   });
   if (!existing) return { error: "That listing no longer exists." };
 
-  if (!ctx.isAdmin && (!ctx.agency || existing.agencyId !== ctx.agency.id)) {
+  if (
+    !canDeleteProperty(
+      {
+        role: ctx.session.user.role,
+        userId: ctx.session.user.id,
+        agencyId: ctx.agency?.id,
+        accountStatus: ctx.agency?.status ?? "active",
+      },
+      existing
+    )
+  ) {
     return { error: "You can only delete your agency's listings." };
   }
 
   await prisma.property.delete({ where: { id } });
   revalidateProperty(existing.slug);
-  redirect("/agency/properties");
+  return {};
 }
 
 export async function deleteSellerPropertyAction(id: string): Promise<PropertyActionResult> {

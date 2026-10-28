@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Building2 } from "lucide-react";
 import { Suspense } from "react";
 
+import { DeletePropertyButton } from "@/components/agent/delete-property-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -81,9 +82,12 @@ async function AgentPropertiesTable() {
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
-                <Button asChild variant="ghost" size="sm" className="rounded-full">
-                  <Link href={`/agency/properties/${property.id}/edit`}>Edit</Link>
-                </Button>
+                <div className="inline-flex items-center justify-end gap-1">
+                  <Button asChild variant="ghost" size="sm" className="rounded-full">
+                    <Link href={`/agency/properties/${property.id}/edit`}>Edit</Link>
+                  </Button>
+                  <DeletePropertyButton id={property.id} title={property.title} />
+                </div>
               </TableCell>
             </TableRow>
           ))}

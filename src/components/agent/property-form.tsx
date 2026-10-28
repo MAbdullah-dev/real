@@ -10,7 +10,6 @@ import { z } from "zod";
 
 import { PropertyImageManager } from "@/components/agent/property-image-manager";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,19 +20,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AvailabilityWindowsField,
+  emptyWindow,
+} from "@/components/viewings/availability-windows-field";
+import { browserTimezone } from "@/lib/viewings";
+import { cn } from "@/lib/utils";
 import {
   createPropertyAction,
   createSellerPropertyAction,
   updatePropertyAction,
   updateSellerPropertyAction,
 } from "@/server/actions/properties";
-import {
-  AvailabilityWindowsField,
-  emptyWindow,
-} from "@/components/viewings/availability-windows-field";
-import { browserTimezone } from "@/lib/viewings";
 import { PROPERTY_CATEGORIES } from "@/server/property-input";
 
 const formSchema = z.object({
@@ -58,9 +59,9 @@ const formSchema = z.object({
     z.object({
       start: z.string(),
       end: z.string(),
-        durationMin: z.number(),
-        bufferMin: z.number(),
-        timezone: z.string().optional(),
+      durationMin: z.number(),
+      bufferMin: z.number(),
+      timezone: z.string().optional(),
     })
   ),
   status: z.enum(["draft", "pending_review", "published"]),
@@ -115,9 +116,12 @@ export function PropertyForm({
     defaultValues,
   });
 
-  const { errors } = form.formState;
+  const { errors, isSubmitting } = form.formState;
+  const busy = pending || isSubmitting;
 
   function onSubmit(values: PropertyFormValues) {
+    if (busy) return;
+
     startTransition(async () => {
       const payload = {
         ...values,
@@ -153,200 +157,329 @@ export function PropertyForm({
     });
   }
 
+  function onInvalid() {
+    toast.error("Please fix the highlighted fields before saving.");
+  }
+
   return (
-    <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-      <Card className="rounded-3xl">
-        <CardHeader>
-          <CardTitle>Core details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Field label="Title" error={errors.title?.message}>
-            <Input {...form.register("title")} />
-          </Field>
-          <Field label="Description" error={errors.description?.message}>
-            <Textarea rows={6} {...form.register("description")} />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Address" error={errors.address?.message}>
-              <Input {...form.register("address")} />
-            </Field>
-            <Field label="City" error={errors.city?.message}>
-              <Input {...form.register("city")} />
-            </Field>
-            <Field label="Country" error={errors.country?.message}>
-              <Input {...form.register("country")} />
-            </Field>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="rounded-3xl">
-        <CardHeader>
-          <CardTitle>Pricing & layout</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Price (USD)" error={errors.price?.message}>
-              <Input type="number" {...form.register("price", { valueAsNumber: true })} />
-            </Field>
-            <Field label="Purpose" error={errors.purpose?.message}>
-              <Controller
-                control={form.control}
-                name="purpose"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sale">For sale</SelectItem>
-                      <SelectItem value="rent">For rent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </Field>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Bedrooms" error={errors.bedrooms?.message}>
-              <Input type="number" {...form.register("bedrooms", { valueAsNumber: true })} />
-            </Field>
-            <Field label="Bathrooms" error={errors.bathrooms?.message}>
-              <Input type="number" {...form.register("bathrooms", { valueAsNumber: true })} />
-            </Field>
-            <Field label="Area (m²)" error={errors.areaSqm?.message}>
-              <Input type="number" {...form.register("areaSqm", { valueAsNumber: true })} />
-            </Field>
-          </div>
-          <Controller
-            control={form.control}
-            name="furnished"
-            render={({ field }) => (
-              <div className="flex items-center justify-between rounded-2xl border border-border p-4">
-                <div>
-                  <p className="text-sm font-medium">Furnished</p>
-                  <p className="text-sm text-muted-foreground">Shown as a filter facet in search.</p>
-                </div>
-                <Switch checked={field.value} onCheckedChange={field.onChange} />
-              </div>
-            )}
+    <form
+      className="space-y-6 lg:space-y-8"
+      onSubmit={form.handleSubmit(onSubmit, onInvalid)}
+      noValidate
+    >
+      <div className="grid items-start gap-6 xl:grid-cols-2 xl:gap-8">
+        <div className="space-y-6 lg:space-y-8">
+      <FormSection
+        title="Basics"
+        description="A clear title and description help buyers understand the listing at a glance."
+      >
+        <Field
+          label="Title"
+          htmlFor="property-title"
+          error={errors.title?.message}
+          hint="At least 4 characters."
+        >
+          <Input
+            id="property-title"
+            placeholder="e.g. Skyline Residence — Dubai Marina"
+            disabled={busy}
+            {...form.register("title")}
           />
-        </CardContent>
-      </Card>
+        </Field>
+        <Field
+          label="Description"
+          htmlFor="property-description"
+          error={errors.description?.message}
+          hint="Highlight layout, finishes, and neighbourhood. At least 20 characters."
+        >
+          <Textarea
+            id="property-description"
+            rows={6}
+            placeholder="Describe the property, standout features, and who it suits…"
+            disabled={busy}
+            className="min-h-36 rounded-2xl"
+            {...form.register("description")}
+          />
+        </Field>
+      </FormSection>
 
-      <Card className="rounded-3xl">
-        <CardHeader>
-          <CardTitle>Gallery</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Controller
-            control={form.control}
-            name="images"
-            render={({ field }) => (
+      <FormSection
+        title="Location"
+        description="Shown on the public listing and used for search filters."
+      >
+        <Field label="Street address" htmlFor="property-address" error={errors.address?.message}>
+          <Input
+            id="property-address"
+            placeholder="Building, street, or neighbourhood"
+            disabled={busy}
+            {...form.register("address")}
+          />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="City" htmlFor="property-city" error={errors.city?.message}>
+            <Input
+              id="property-city"
+              placeholder="Dubai"
+              disabled={busy}
+              {...form.register("city")}
+            />
+          </Field>
+          <Field label="Country" htmlFor="property-country" error={errors.country?.message}>
+            <Input
+              id="property-country"
+              placeholder="United Arab Emirates"
+              disabled={busy}
+              {...form.register("country")}
+            />
+          </Field>
+        </div>
+      </FormSection>
+
+      <FormSection
+        title="Media"
+        description="Lead with strong photos. The first image becomes the cover."
+      >
+        <Controller
+          control={form.control}
+          name="images"
+          render={({ field }) => (
+            <div className="space-y-2">
+              <Label>Photos</Label>
               <PropertyImageManager
                 images={field.value}
                 onChange={field.onChange}
                 uploadsEnabled={uploadsEnabled}
               />
-            )}
+              {errors.images?.message ? (
+                <p className="text-sm text-destructive">{errors.images.message}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Add at least one photo.</p>
+              )}
+            </div>
+          )}
+        />
+        <Field
+          label="Video URL"
+          htmlFor="property-video"
+          error={errors.videoUrl?.message}
+          hint="Optional. YouTube, Vimeo, or a direct video link."
+        >
+          <Input
+            id="property-video"
+            type="url"
+            placeholder="https://"
+            disabled={busy}
+            {...form.register("videoUrl")}
           />
-          {errors.images?.message ? (
-            <p className="text-sm text-destructive">{errors.images.message}</p>
-          ) : null}
-          <Field label="Video URL (optional)" error={errors.videoUrl?.message}>
-            <Input placeholder="https://…" {...form.register("videoUrl")} />
-          </Field>
-        </CardContent>
-      </Card>
+        </Field>
+      </FormSection>
+        </div>
 
-      <Card className="rounded-3xl">
-        <CardHeader>
-          <CardTitle>Categorisation</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Controller
-            control={form.control}
-            name="categories"
-            render={({ field }) => (
-              <div className="space-y-2">
-                <Label>Categories</Label>
-                <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {PROPERTY_CATEGORIES.map((category) => {
-                    const checked = field.value.includes(category);
-                    return (
-                      <label
-                        key={category}
-                        className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm"
-                      >
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(next) =>
-                            field.onChange(
-                              next
-                                ? [...field.value, category]
-                                : field.value.filter((item) => item !== category)
-                            )
-                          }
-                        />
-                        {categoryLabel(category)}
-                      </label>
-                    );
-                  })}
-                </div>
-                {errors.categories?.message ? (
-                  <p className="text-sm text-destructive">{errors.categories.message}</p>
-                ) : null}
+        <div className="space-y-6 lg:space-y-8">
+      <FormSection
+        title="Pricing & layout"
+        description="Numbers buyers compare first — keep them accurate."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Price (USD)" htmlFor="property-price" error={errors.price?.message}>
+            <Input
+              id="property-price"
+              type="number"
+              min={1}
+              step={1}
+              placeholder="500000"
+              disabled={busy}
+              {...form.register("price", { valueAsNumber: true })}
+            />
+          </Field>
+          <Field label="Purpose" error={errors.purpose?.message}>
+            <Controller
+              control={form.control}
+              name="purpose"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange} disabled={busy}>
+                  <SelectTrigger aria-label="Purpose">
+                    <SelectValue placeholder="Select purpose" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sale">For sale</SelectItem>
+                    <SelectItem value="rent">For rent</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Bedrooms" htmlFor="property-bedrooms" error={errors.bedrooms?.message}>
+            <Input
+              id="property-bedrooms"
+              type="number"
+              min={0}
+              max={50}
+              disabled={busy}
+              {...form.register("bedrooms", { valueAsNumber: true })}
+            />
+          </Field>
+          <Field label="Bathrooms" htmlFor="property-bathrooms" error={errors.bathrooms?.message}>
+            <Input
+              id="property-bathrooms"
+              type="number"
+              min={0}
+              max={50}
+              disabled={busy}
+              {...form.register("bathrooms", { valueAsNumber: true })}
+            />
+          </Field>
+          <Field label="Area (m²)" htmlFor="property-area" error={errors.areaSqm?.message}>
+            <Input
+              id="property-area"
+              type="number"
+              min={1}
+              disabled={busy}
+              {...form.register("areaSqm", { valueAsNumber: true })}
+            />
+          </Field>
+        </div>
+        <Controller
+          control={form.control}
+          name="furnished"
+          render={({ field }) => (
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/80 bg-muted/20 px-4 py-3.5">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Furnished</p>
+                <p className="text-sm text-muted-foreground">
+                  Shown as a filter facet in search results.
+                </p>
               </div>
-            )}
-          />
-          <Field label="Amenities (comma separated)" error={errors.amenities?.message}>
-            <Input placeholder="Pool, Gym, Concierge" {...form.register("amenities")} />
-          </Field>
-          <Field label="Badges (comma separated)" error={errors.badges?.message}>
-            <Input placeholder="New, Exclusive, Luxury" {...form.register("badges")} />
-            <p className="text-xs text-muted-foreground">Do not enter Verified — that comes from account approval.</p>
-          </Field>
-        </CardContent>
-      </Card>
-
-      <Card className="rounded-3xl">
-        <CardHeader>
-          <CardTitle>Viewing availability</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            {variant === "seller"
-              ? "Buyers book a generated slot inside these windows. Required before you submit for review."
-              : "Optional. If you add windows, buyers pick a generated slot instead of choosing freely."}
-          </p>
-          <Controller
-            control={form.control}
-            name="availabilityWindows"
-            render={({ field }) => (
-              <AvailabilityWindowsField
-                value={field.value.length ? field.value : [emptyWindow()]}
-                onChange={field.onChange}
-                disabled={pending}
-                required={variant === "seller"}
+              <Switch
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                disabled={busy}
+                aria-label="Furnished"
               />
-            )}
-          />
-        </CardContent>
-      </Card>
+            </div>
+          )}
+        />
+      </FormSection>
 
-      <Card className="rounded-3xl">
-        <CardHeader>
-          <CardTitle>Publishing</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <FormSection
+        title="Categorisation"
+        description="Categories and amenities power discovery across the site."
+      >
+        <Controller
+          control={form.control}
+          name="categories"
+          render={({ field }) => (
+            <div className="space-y-2">
+              <Label>Categories</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {PROPERTY_CATEGORIES.map((category) => {
+                  const checked = field.value.includes(category);
+                  return (
+                    <label
+                      key={category}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-sm transition-colors",
+                        checked
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border/80 hover:bg-muted/40",
+                        busy && "pointer-events-none opacity-60"
+                      )}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        disabled={busy}
+                        onCheckedChange={(next) =>
+                          field.onChange(
+                            next
+                              ? [...field.value, category]
+                              : field.value.filter((item) => item !== category)
+                          )
+                        }
+                      />
+                      {categoryLabel(category)}
+                    </label>
+                  );
+                })}
+              </div>
+              {errors.categories?.message ? (
+                <p className="text-sm text-destructive">{errors.categories.message}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Select at least one category.</p>
+              )}
+            </div>
+          )}
+        />
+        <Field
+          label="Amenities"
+          htmlFor="property-amenities"
+          error={errors.amenities?.message}
+          hint="Comma-separated, e.g. Pool, Gym, Concierge."
+        >
+          <Input
+            id="property-amenities"
+            placeholder="Pool, Gym, Concierge"
+            disabled={busy}
+            {...form.register("amenities")}
+          />
+        </Field>
+        <Field
+          label="Marketing badges"
+          htmlFor="property-badges"
+          error={errors.badges?.message}
+          hint="Optional. Do not enter Verified — that comes from account approval."
+        >
+          <Input
+            id="property-badges"
+            placeholder="New, Exclusive, Luxury"
+            disabled={busy}
+            {...form.register("badges")}
+          />
+        </Field>
+      </FormSection>
+        </div>
+      </div>
+
+      <FormSection
+        title="Viewing availability"
+        description={
+          variant === "seller"
+            ? "Buyers book a generated slot inside these windows. Required before you submit for review."
+            : "Optional. If you add windows, buyers pick a generated slot instead of proposing times freely."
+        }
+      >
+        <Controller
+          control={form.control}
+          name="availabilityWindows"
+          render={({ field }) => (
+            <AvailabilityWindowsField
+              value={field.value.length ? field.value : [emptyWindow()]}
+              onChange={field.onChange}
+              disabled={busy}
+              required={variant === "seller"}
+            />
+          )}
+        />
+      </FormSection>
+
+      <FormSection
+        title="Publishing"
+        description={
+          canPublish
+            ? "Choose whether this listing stays a draft, goes to review, or goes live."
+            : "An admin publishes listings after review. You can save a draft or submit for review."
+        }
+      >
+        <div className="max-w-md">
           <Controller
             control={form.control}
             name="status"
             render={({ field }) => (
               <Field label="Status" error={errors.status?.message}>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue />
+                <Select value={field.value} onValueChange={field.onChange} disabled={busy}>
+                  <SelectTrigger aria-label="Listing status">
+                    <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="draft">Draft</SelectItem>
@@ -357,35 +490,75 @@ export function PropertyForm({
               </Field>
             )}
           />
-          {!canPublish ? (
-            <p className="text-sm text-muted-foreground">
-              An admin publishes listings after review.
-            </p>
-          ) : null}
-          <Button type="submit" className="rounded-full" disabled={pending}>
-            {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+        </div>
+      </FormSection>
+
+      <div className="sticky bottom-3 z-20 rounded-2xl border border-border/80 bg-background/95 p-3 shadow-[var(--shadow-card)] backdrop-blur-md sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {busy
+              ? mode === "create"
+                ? "Creating listing…"
+                : "Saving changes…"
+              : mode === "create"
+                ? "Review the sections above, then create the listing."
+                : "Changes apply after you save."}
+          </p>
+          <Button type="submit" className="rounded-full sm:min-w-40" disabled={busy} aria-busy={busy}>
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : null}
             {mode === "create" ? "Create listing" : "Save changes"}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </form>
+  );
+}
+
+function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-3xl border border-border/70 bg-card/70 p-5 shadow-[var(--shadow-card)] sm:p-6 lg:p-7">
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold tracking-tight sm:text-lg">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <Separator className="my-5" />
+      <div className="space-y-4">{children}</div>
+    </section>
   );
 }
 
 function Field({
   label,
+  htmlFor,
   error,
+  hint,
   children,
 }: {
   label: string;
+  htmlFor?: string;
   error?: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <Label htmlFor={htmlFor}>{label}</Label>
       {children}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      ) : null}
     </div>
   );
 }

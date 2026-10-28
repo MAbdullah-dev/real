@@ -1,42 +1,235 @@
 import "server-only";
 
+import type { Prisma, PropertyStatus } from "@prisma/client";
+
+import {
+  ADMIN_SETTINGS,
+  ADMIN_SETTINGS_DEFAULT_ON,
+  type AdminSettingKey,
+} from "@/data/admin-settings";
+import { isAgencyOwned, isSellerOwned } from "@/lib/listing-ownership";
 import { prisma } from "@/lib/prisma";
 
-export const ADMIN_SETTINGS = [
-  {
-    key: "autoPublishListings",
-    label: "Auto-publish listings",
-    description: "Skip manual review and publish submitted listings immediately.",
-  },
-  {
-    key: "allowBrokerSignup",
-    label: "Allow broker self-signup",
-    description: "Let platform brokers register to handle seller-property buyers.",
-  },
-  {
-    key: "allowAgencySignup",
-    label: "Allow agency self-signup",
-    description: "Let real-estate agencies register.",
-  },
-  {
-    key: "allowSellerSignup",
-    label: "Allow seller self-signup",
-    description: "Let property owners register and list their own homes.",
-  },
-  {
-    key: "maintenanceBanner",
-    label: "Show maintenance banner",
-    description: "Display a site-wide notice about scheduled work.",
-  },
-] as const;
+export { ADMIN_SETTINGS, type AdminSettingKey };
 
-export type AdminSettingKey = (typeof ADMIN_SETTINGS)[number]["key"];
+export type AdminPropertyTab = "all" | "pending" | "agency" | "seller";
 
-const DEFAULT_ON = new Set([
-  "allowBrokerSignup",
-  "allowAgencySignup",
-  "allowSellerSignup",
-]);
+export type AdminPropertyFilters = {
+  tab?: AdminPropertyTab;
+  q?: string;
+  status?: "all" | PropertyStatus;
+  city?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+const ADMIN_PROPERTY_PAGE_SIZE = 20;
+
+function adminPropertyWhere(
+  filters: AdminPropertyFilters,
+  tab: AdminPropertyTab
+): Prisma.PropertyWhereInput {
+  const where: Prisma.PropertyWhereInput = {};
+
+  if (tab === "pending") {
+    where.status = "pending_review";
+  } else if (filters.status && filters.status !== "all") {
+    where.status = filters.status;
+  }
+
+  if (tab === "agency") {
+    where.agencyId = { not: null };
+  } else if (tab === "seller") {
+    where.sellerId = { not: null };
+    where.agencyId = null;
+  }
+
+  const city = filters.city?.trim();
+  if (city && city !== "all") {
+    where.city = { equals: city, mode: "insensitive" };
+  }
+
+  const q = filters.q?.trim();
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { city: { contains: q, mode: "insensitive" } },
+      { address: { contains: q, mode: "insensitive" } },
+      { country: { contains: q, mode: "insensitive" } },
+      { agency: { name: { contains: q, mode: "insensitive" } } },
+      { seller: { name: { contains: q, mode: "insensitive" } } },
+      { agent: { name: { contains: q, mode: "insensitive" } } },
+    ];
+  }
+
+  return where;
+}
+
+/** Lean admin inventory: ownership from agencyId/sellerId, not display names. */
+export async function listAdminProperties(filters: AdminPropertyFilters = {}) {
+  const tab = filters.tab ?? "all";
+  const pageSize = Math.min(
+    50,
+    Math.max(1, filters.pageSize ?? ADMIN_PROPERTY_PAGE_SIZE)
+  );
+  const page = Math.max(1, filters.page ?? 1);
+  const where = adminPropertyWhere(filters, tab);
+
+  const [rows, total, allCount, pendingCount, agencyCount, sellerCount, cities] =
+    await Promise.all([
+      prisma.property.findMany({
+        where,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          city: true,
+          country: true,
+          price: true,
+          status: true,
+          agencyId: true,
+          sellerId: true,
+          updatedAt: true,
+          images: {
+            orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }],
+            take: 1,
+            select: { url: true },
+          },
+          agency: { select: { name: true } },
+          seller: { select: { name: true, email: true } },
+          agent: { select: { name: true } },
+        },
+        orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.property.count({ where }),
+      prisma.property.count({ where: adminPropertyWhere(filters, "all") }),
+      prisma.property.count({ where: adminPropertyWhere(filters, "pending") }),
+      prisma.property.count({ where: adminPropertyWhere(filters, "agency") }),
+      prisma.property.count({ where: adminPropertyWhere(filters, "seller") }),
+      prisma.property.findMany({
+        distinct: ["city"],
+        select: { city: true },
+        orderBy: { city: "asc" },
+      }),
+    ]);
+
+  const items = rows.map((row) => {
+    const ownerKind = isAgencyOwned(row)
+      ? ("agency" as const)
+      : isSellerOwned(row)
+        ? ("seller" as const)
+        : ("unknown" as const);
+    const ownerName =
+      ownerKind === "agency"
+        ? (row.agency?.name ?? "Agency")
+        : ownerKind === "seller"
+          ? (row.seller?.name ?? row.agent.name ?? row.seller?.email ?? "Seller")
+          : (row.agent.name ?? "Unassigned");
+
+    return {
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      city: row.city,
+      country: row.country,
+      price: row.price,
+      status: row.status,
+      image: row.images[0]?.url ?? "",
+      ownerKind,
+      ownerName,
+      updatedAt: row.updatedAt,
+    };
+  });
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    counts: {
+      all: allCount,
+      pending: pendingCount,
+      agency: agencyCount,
+      seller: sellerCount,
+    },
+    cities: cities.map((row) => row.city).filter(Boolean),
+  };
+}
+
+/** Full admin review payload for `/admin/properties/[id]`. */
+export async function getAdminProperty(id: string) {
+  const row = await prisma.property.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      description: true,
+      address: true,
+      city: true,
+      country: true,
+      price: true,
+      purpose: true,
+      bedrooms: true,
+      bathrooms: true,
+      areaSqm: true,
+      furnished: true,
+      categories: true,
+      amenities: true,
+      badges: true,
+      videoUrl: true,
+      status: true,
+      agencyId: true,
+      sellerId: true,
+      createdAt: true,
+      updatedAt: true,
+      images: {
+        orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }],
+        select: { id: true, url: true, isCover: true },
+      },
+      agency: { select: { id: true, name: true, phone: true, status: true, city: true } },
+      seller: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          sellerProfile: { select: { phone: true, status: true, city: true } },
+        },
+      },
+      agent: { select: { id: true, name: true, email: true } },
+      availabilityWindows: {
+        orderBy: { start: "asc" },
+        select: { start: true, end: true, durationMin: true, bufferMin: true },
+      },
+      _count: { select: { bookings: true, leads: true } },
+    },
+  });
+  if (!row) return null;
+
+  const ownerKind = isAgencyOwned(row)
+    ? ("agency" as const)
+    : isSellerOwned(row)
+      ? ("seller" as const)
+      : ("unknown" as const);
+
+  const ownerName =
+    ownerKind === "agency"
+      ? (row.agency?.name ?? "Agency")
+      : ownerKind === "seller"
+        ? (row.seller?.name ?? row.agent.name ?? row.seller?.email ?? "Seller")
+        : (row.agent.name ?? "Unassigned");
+
+  return {
+    ...row,
+    ownerKind,
+    ownerName,
+  };
+}
+
+const DEFAULT_ON = new Set<AdminSettingKey>(ADMIN_SETTINGS_DEFAULT_ON);
 
 export async function getAdminSettings() {
   const rows = await prisma.adminSetting.findMany();

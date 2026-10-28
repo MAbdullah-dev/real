@@ -21,6 +21,8 @@ async function requireAdmin() {
 const moderateSchema = z.object({
   id: z.string().min(1),
   status: z.enum(["draft", "pending_review", "published", "rejected"]),
+  /** Optional note for the owner notification. Property has no statusNote column. */
+  note: z.string().max(2000).optional(),
 });
 
 export async function moderatePropertyAction(
@@ -33,7 +35,7 @@ export async function moderatePropertyAction(
   const property = await prisma.property.update({
     where: { id: parsed.data.id },
     data: { status: parsed.data.status },
-    select: { title: true, slug: true, agentId: true },
+    select: { id: true, title: true, slug: true, agentId: true },
   });
 
   const copy: Record<string, string> = {
@@ -42,16 +44,20 @@ export async function moderatePropertyAction(
     draft: "was moved back to draft",
     pending_review: "is queued for review",
   };
+  const note = parsed.data.note?.trim();
   await createNotification(
     property.agentId,
     "Listing status changed",
-    `${property.title} ${copy[parsed.data.status]}.`
+    note
+      ? `${property.title} ${copy[parsed.data.status]}. ${note}`
+      : `${property.title} ${copy[parsed.data.status]}.`
   );
 
   updateTag("properties");
   updateTag(`property-${property.slug}`);
   updateTag("agents");
   revalidatePath("/admin/properties");
+  revalidatePath(`/admin/properties/${property.id}`);
   return { ok: true };
 }
 

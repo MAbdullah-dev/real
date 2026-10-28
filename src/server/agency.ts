@@ -1,29 +1,13 @@
 import "server-only";
 
-import type { AgencyType, AgentStatus, CredentialType } from "@prisma/client";
+import type { AgencyType, AgentStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 
-import { CREDENTIAL_LABELS } from "@/lib/agency-labels";
+import { CREDENTIAL_LABELS, requiredCredentialTypes } from "@/lib/agency-labels";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/server/auth";
 
-export { CREDENTIAL_LABELS };
-
-/** Country-keyed required docs. Pakistan-first; generic fallback for abroad. */
-export function requiredCredentialTypes(
-  country: string | null | undefined,
-  type: AgencyType
-): CredentialType[] {
-  const code = (country ?? "PK").toUpperCase();
-  if (code === "PK") {
-    const required: CredentialType[] = ["national_id"];
-    if (type !== "individual") required.push("business_registration");
-    return required;
-  }
-  const required: CredentialType[] = ["national_id", "real_estate_license"];
-  if (type !== "individual") required.push("business_registration");
-  return required;
-}
+export { CREDENTIAL_LABELS, requiredCredentialTypes };
 
 export async function createAgencyForUser(
   userId: string,

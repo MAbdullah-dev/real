@@ -2,13 +2,11 @@ import "server-only";
 
 import type { SubscriptionStatus } from "@prisma/client";
 
+import { ACTIVE_SUBSCRIPTION_STATUSES, FREE_LISTING_LIMIT, LISTING_LIMIT_STATUSES } from "@/data/plans";
 import { prisma } from "@/lib/prisma";
 import { getMembership } from "@/server/agency";
 
-/** Agencies without a paid subscription may keep one live listing. */
-export const FREE_LISTING_LIMIT = 1;
-
-const ACTIVE_STATUSES: SubscriptionStatus[] = ["active", "trialing"];
+const ACTIVE_STATUSES: SubscriptionStatus[] = [...ACTIVE_SUBSCRIPTION_STATUSES];
 
 export async function getActiveSubscriptionForAgency(agencyId: string) {
   return prisma.subscription.findFirst({
@@ -55,7 +53,7 @@ export async function getListingAllowance(userId: string): Promise<ListingAllowa
     prisma.property.count({
       where: {
         agencyId: membership.agencyId,
-        status: { in: ["draft", "pending_review", "published"] },
+        status: { in: [...LISTING_LIMIT_STATUSES] },
       },
     }),
   ]);
